@@ -223,30 +223,54 @@ public abstract class AopUtils {
 	 */
 	public static boolean canApply(Pointcut pc, Class<?> targetClass, boolean hasIntroductions) {
 		Assert.notNull(pc, "Pointcut must not be null");
+		// 进行切点表达式匹配最重要的就是ClassFilter和MethodMather这两个方法的实现
+		// MethodMatcher有两个matches方法
+		// 1. 参数只有Method对象和targetClass: 用于静态方法的匹配
+		// 2. 参数有Method对象和targetClass还有一个Method的方法参数: 用于运行期间动态方法进行匹配
+		
+		// 先进行ClassFilter的matches方法校验, 判断targetClass是否和pointCut表达式的类匹配
+		// 具体怎么校验的比较复杂(没看懂, 但不重要)
 		if (!pc.getClassFilter().matches(targetClass)) {
 			return false;
 		}
 
+		// MethodMatcher方法校验
 		MethodMatcher methodMatcher = pc.getMethodMatcher();
 		if (methodMatcher == MethodMatcher.TRUE) {
 			// No need to iterate the methods if we're matching any method anyway...
 			return true;
 		}
 
+		// 判断匹配器是不是IntroductionAwareMethodMatcher
 		IntroductionAwareMethodMatcher introductionAwareMethodMatcher = null;
 		if (methodMatcher instanceof IntroductionAwareMethodMatcher) {
 			introductionAwareMethodMatcher = (IntroductionAwareMethodMatcher) methodMatcher;
 		}
 
+		// 创建一个集合用于保存targetClass的class对象
 		Set<Class<?>> classes = new LinkedHashSet<>();
+		// 判断当前class是不是代理的class对象
 		if (!Proxy.isProxyClass(targetClass)) {
+			// 加入集合中
 			classes.add(ClassUtils.getUserClass(targetClass));
 		}
+		// 获取到targetClass所实现的接口的class对象, 加入到集合中
 		classes.addAll(ClassUtils.getAllInterfacesForClassAsSet(targetClass));
 
+		// 遍历所有的class对象
 		for (Class<?> clazz : classes) {
+			// 通过class获取到所有的方法
 			Method[] methods = ReflectionUtils.getAllDeclaredMethods(clazz);
+			// 循环获取到的连接点的方法
 			for (Method method : methods) {
+				// 只要有一个方法能匹配到就返回true
+				// 1. 为什么匹配到一个就返回？
+				// PointCut的execution表达式可以class.*匹配类下面所有方法, 也可以class.div匹配该类下面具体某个方法
+				// 一旦有一个方法被匹配到, 就说明这个class需要被代理
+				// 2. 这里就会有一个问题？
+				// 一个连接点对象中可能有多个方法存在, 有的是满足这个切点的匹配规则, 但也有一些是不匹配切点规则
+				// 这里检测的是只有一个method满足切点规则就返回true
+				// 所以在运行时进行方法拦截的时候还会有一次运行时的方法切点规则匹配
 				if (introductionAwareMethodMatcher != null ?
 						introductionAwareMethodMatcher.matches(method, targetClass, hasIntroductions) :
 						methodMatcher.matches(method, targetClass)) {
@@ -281,10 +305,14 @@ public abstract class AopUtils {
 	 * @return whether the pointcut can apply on any method
 	 */
 	public static boolean canApply(Advisor advisor, Class<?> targetClass, boolean hasIntroductions) {
+		// 如果是IntroductionAdvisor的话, 则使用对应的进行类的筛选
+		// 这里直接调用的ClassFilter的matches方法
 		if (advisor instanceof IntroductionAdvisor) {
 			return ((IntroductionAdvisor) advisor).getClassFilter().matches(targetClass);
 		}
+		// 通常我们的Advisor都是PointcutAdvisor类型 java17新语法转为PointcutAdvisor类型
 		else if (advisor instanceof PointcutAdvisor pca) {
+			// 从Advisor中获取Pointcut实现类, 这里是AspectJExpressionPointcut
 			return canApply(pca.getPointcut(), targetClass, hasIntroductions);
 		}
 		else {
@@ -302,21 +330,30 @@ public abstract class AopUtils {
 	 * (may be the incoming List as-is)
 	 */
 	public static List<Advisor> findAdvisorsThatCanApply(List<Advisor> candidateAdvisors, Class<?> clazz) {
+		// 若候选的增强器集合为空 直接返回
 		if (candidateAdvisors.isEmpty()) {
 			return candidateAdvisors;
 		}
+		
+		// 定义一个合适的增强器集合对象
 		List<Advisor> eligibleAdvisors = new ArrayList<>();
+		
+		// 循环候选的增强器对象
 		for (Advisor candidate : candidateAdvisors) {
+			// 判断增强器是否实现了引介增强(类级别的增强), 不会走这
 			if (candidate instanceof IntroductionAdvisor && canApply(candidate, clazz)) {
 				eligibleAdvisors.add(candidate);
 			}
 		}
+		// 是否有引介增强(没有, false)
 		boolean hasIntroductions = !eligibleAdvisors.isEmpty();
 		for (Advisor candidate : candidateAdvisors) {
+			// 判断增强器是否实现了IntroductionAdvisor
 			if (candidate instanceof IntroductionAdvisor) {
-				// already processed
+				// 在上面处理过, 不需要处理
 				continue;
 			}
+			// 真正的判断增强器是否适合当前类型 
 			if (canApply(candidate, clazz, hasIntroductions)) {
 				eligibleAdvisors.add(candidate);
 			}

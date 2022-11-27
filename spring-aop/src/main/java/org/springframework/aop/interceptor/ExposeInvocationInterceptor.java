@@ -28,6 +28,8 @@ import org.springframework.core.PriorityOrdered;
 import org.springframework.lang.Nullable;
 
 /**
+ * ExposeInvocationInterceptor用来传递MethodInvocation的
+ * 在后续任何调用链环节, 只需要用到当前的MethodInvocation就通过ExposeInvocationInterceptor.currentInvocation静态方法获得
  * Interceptor that exposes the current {@link org.aopalliance.intercept.MethodInvocation}
  * as a thread-local object. We occasionally need to do this; for example, when a pointcut
  * (e.g. an AspectJ expression pointcut) needs to know the full invocation context.
