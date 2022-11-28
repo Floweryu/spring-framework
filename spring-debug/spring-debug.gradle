@@ -1,0 +1,10 @@
+description = "Spring Debug"
+
+dependencies {
+    api(project(":spring-aop"))
+    api(project(":spring-beans"))
+    api(project(":spring-core"))
+    api(project(":spring-expression"))
+    api(project(":spring-context"))
+    optional("org.aspectj:aspectjweaver")
+}

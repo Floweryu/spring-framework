@@ -12,7 +12,7 @@ plugins {
 }
 
 include "spring-aop"
-include "spring-aspects"
+//include "spring-aspects"
 include "spring-beans"
 include "spring-context"
 include "spring-context-indexer"
@@ -38,6 +38,9 @@ include "framework-bom"
 include "framework-docs"
 include "framework-platform"
 include "integration-tests"
+// 测试模块
+include 'spring-debug'
+
 
 rootProject.name = "spring"
 rootProject.children.each {project ->
