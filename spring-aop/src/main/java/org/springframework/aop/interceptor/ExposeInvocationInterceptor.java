@@ -93,9 +93,13 @@ public final class ExposeInvocationInterceptor implements MethodInterceptor, Pri
 	@Override
 	@Nullable
 	public Object invoke(MethodInvocation mi) throws Throwable {
+		// 第一次进来这里是空的
 		MethodInvocation oldInvocation = invocation.get();
+		// 第一次进来将CglibMethodInvocation存到invocation中
 		invocation.set(mi);
 		try {
+			// 然后执行proceed又回到原来的地方
+			// org.springframework.aop.framework.CglibAopProxy.CglibMethodInvocation.proceed
 			return mi.proceed();
 		}
 		finally {

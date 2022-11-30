@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd">
+	
+	<bean id="logAspects" class="com.floweryu.aop.LogAspects" />
+	<bean id="mathCalculator" class="com.floweryu.aop.MathCalculator" />
+	
+	<aop:config>
+		<aop:aspect ref="logAspects">
+			<aop:pointcut id="pointCut" expression="execution(public int com.floweryu.aop.MathCalculator.*(..))"/>
+			<aop:after method="logEnd" pointcut-ref="pointCut" />
+			<aop:before method="logStart" pointcut-ref="pointCut" />
+			<aop:after-returning method="logReturn" pointcut-ref="pointCut" returning="returning" />
+			<aop:after-throwing method="logException" pointcut-ref="pointCut" throwing="ex" />
+			<aop:around method="logAround" pointcut-ref="pointCut" />
+		</aop:aspect>
+	</aop:config>
+	<aop:aspectj-autoproxy />
+</beans>

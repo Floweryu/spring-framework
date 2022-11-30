@@ -625,11 +625,14 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 
 	protected Object invokeAdviceMethodWithGivenArgs(Object[] args) throws Throwable {
 		Object[] actualArgs = args;
+		// 判断通知的方法是否有参数
 		if (this.aspectJAdviceMethod.getParameterCount() == 0) {
 			actualArgs = null;
 		}
 		try {
 			ReflectionUtils.makeAccessible(this.aspectJAdviceMethod);
+			// 执行方法, 这时会执行增强器里面逻辑
+			// 比如@Around增强, 会执行com.floweryu.aop.LogAspects.logAround里面逻辑
 			return this.aspectJAdviceMethod.invoke(this.aspectInstanceFactory.getAspectInstance(), actualArgs);
 		}
 		catch (IllegalArgumentException ex) {
@@ -669,6 +672,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 	// are guaranteed to bind in exactly the same way.
 	@Nullable
 	protected JoinPointMatch getJoinPointMatch(ProxyMethodInvocation pmi) {
+		// 获取pointCut表达式
 		String expression = this.pointcut.getExpression();
 		return (expression != null ? (JoinPointMatch) pmi.getUserAttribute(expression) : null);
 	}

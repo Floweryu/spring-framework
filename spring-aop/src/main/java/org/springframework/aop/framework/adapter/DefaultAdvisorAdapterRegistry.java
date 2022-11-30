@@ -40,11 +40,14 @@ import org.springframework.aop.support.DefaultPointcutAdvisor;
 @SuppressWarnings("serial")
 public class DefaultAdvisorAdapterRegistry implements AdvisorAdapterRegistry, Serializable {
 
+	// 持有一个AdvisorAdapter的List, 这个List中的adapter是与实现Spring AOP的advice增强功能相对应的
 	private final List<AdvisorAdapter> adapters = new ArrayList<>(3);
 
 
 	/**
 	 * Create a new DefaultAdvisorAdapterRegistry, registering well-known adapters.
+	 * 将已有的advice实现的Adapter加进来
+	 * 为什么只添加这三个?
 	 */
 	public DefaultAdvisorAdapterRegistry() {
 		registerAdvisorAdapter(new MethodBeforeAdviceAdapter());
@@ -77,11 +80,17 @@ public class DefaultAdvisorAdapterRegistry implements AdvisorAdapterRegistry, Se
 	@Override
 	public MethodInterceptor[] getInterceptors(Advisor advisor) throws UnknownAdviceTypeException {
 		List<MethodInterceptor> interceptors = new ArrayList<>(3);
+		// 从advisor中获取advice
 		Advice advice = advisor.getAdvice();
 		if (advice instanceof MethodInterceptor) {
 			interceptors.add((MethodInterceptor) advice);
 		}
 		for (AdvisorAdapter adapter : this.adapters) {
+			// 判断当前advice是否为下面三种
+			// MethodBeforeAdviceAdapter  AfterReturningAdviceAdapter  ThrowsAdviceAdapter
+			// 上面三种都没有实现MethodInterceptor接口
+			// 如果匹配到, 就添加对应的MethodInterceptor
+			// 为什么要这样设计? 便于扩展
 			if (adapter.supportsAdvice(advice)) {
 				interceptors.add(adapter.getInterceptor(advisor));
 			}

@@ -53,18 +53,27 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 
 		// This is somewhat tricky... We have to process introductions first,
 		// but we need to preserve order in the ultimate list.
+		// 这里使用了单例模式, 获取DefaultAdvisorAdapterRegistry实例
+		// spring符合单一职责的原则有很多, 每个功能都会有响应的类去处理
+		// 主要作用是将Advice适配为Advisor, 将Advisor适配为对应的MethodInterceptor
 		AdvisorAdapterRegistry registry = GlobalAdvisorAdapterRegistry.getInstance();
+		// 创建一个之前获取到的通知个数集合
 		Advisor[] advisors = config.getAdvisors();
 		List<Object> interceptorList = new ArrayList<>(advisors.length);
+		// 如果目标类为null的话, 则从方法签名中获取目标类
 		Class<?> actualClass = (targetClass != null ? targetClass : method.getDeclaringClass());
+		// 判断是否有引介增强
 		Boolean hasIntroductions = null;
 
+		// 循环目标方法匹配的通知
 		for (Advisor advisor : advisors) {
 			if (advisor instanceof PointcutAdvisor pointcutAdvisor) {
 				// Add it conditionally.
+				// 提前进行前置过滤或者当前的Advisor适用于目标类(MathCalculator)
 				if (config.isPreFiltered() || pointcutAdvisor.getPointcut().getClassFilter().matches(actualClass)) {
 					MethodMatcher mm = pointcutAdvisor.getPointcut().getMethodMatcher();
 					boolean match;
+					// 检查Advisor是否适用于此目标方法
 					if (mm instanceof IntroductionAwareMethodMatcher) {
 						if (hasIntroductions == null) {
 							hasIntroductions = hasMatchingIntroductions(advisors, actualClass);
@@ -72,13 +81,17 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 						match = ((IntroductionAwareMethodMatcher) mm).matches(method, actualClass, hasIntroductions);
 					}
 					else {
+						// 匹配当前method是否属于目标类
 						match = mm.matches(method, actualClass);
 					}
 					if (match) {
+						// 通过advisor获取拦截器链
 						MethodInterceptor[] interceptors = registry.getInterceptors(advisor);
 						if (mm.isRuntime()) {
 							// Creating a new object instance in the getInterceptors() method
 							// isn't a problem as we normally cache created chains.
+							// 动态切入点会创建一个InterceptorAndDynamicMethodMatcher对象
+							// 这个对象包含MethodInterceptor和MethodMatcher实例
 							for (MethodInterceptor interceptor : interceptors) {
 								interceptorList.add(new InterceptorAndDynamicMethodMatcher(interceptor, mm));
 							}

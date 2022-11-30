@@ -34,6 +34,7 @@ import org.springframework.util.StringUtils;
 public abstract class AutoProxyUtils {
 
 	/**
+	 * 判断bean是否能被targetClass代理
 	 * Bean definition attribute that may indicate whether a given bean is supposed
 	 * to be proxied with its target class (in case of it getting proxied in the first
 	 * place). The value is {@code Boolean.TRUE} or {@code Boolean.FALSE}.

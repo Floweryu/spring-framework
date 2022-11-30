@@ -26,7 +26,7 @@ public class LogAspects {
     @Before("pointCut()")
     public void logStart(JoinPoint joinPoint) {
         Object[] args = joinPoint.getArgs();
-        System.out.println(joinPoint.getSignature().getName() + " 运行开始.......参数列表是: {" + Arrays.toString(args) + "}");
+        System.out.println("@Before执行..." + joinPoint.getSignature().getName() + " 运行开始.......参数列表是: {" + Arrays.toString(args) + "}");
     }
 
     /**
@@ -34,7 +34,7 @@ public class LogAspects {
      */
     @After("pointCut()")
     public void logEnd() {
-        System.out.println("除法结束.......");
+        System.out.println("@After执行...   方法执行结束.......");
     }
 
     /**
@@ -42,7 +42,7 @@ public class LogAspects {
      */
     @AfterReturning(value = "pointCut()", returning = "returning")
     public void logReturn(Object returning) {
-        System.out.println("除法正常返回.......返回值: {" + returning + "}");
+        System.out.println("@AfterReturning执行...   除法正常返回.......返回值: {" + returning + "}");
     }
 
     /**
@@ -50,14 +50,16 @@ public class LogAspects {
      */
     @AfterThrowing(value = "pointCut()", throwing = "ex")
     public void logException(Exception ex) {
-        System.out.println("除法异常.......异常: {" + ex +"}");
+        System.out.println("@AfterThrowing执行...   除法异常.......异常: {" + ex +"}");
     }
     
     @Around("pointCut()")
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
-        System.out.println("方法执行前调用========");
+        System.out.println("@Around执行...   方法执行前调用========");
+		// 通过反射调用div方法
+		// 又回到此处CglibAopProxy.CglibMethodInvocation.proceed, 相当于mi.proceed()
         Object result = joinPoint.proceed();
-        System.out.println("方法执行后调用========");
+        System.out.println("@Around执行...   方法执行后调用========");
         return result;
     }
 }

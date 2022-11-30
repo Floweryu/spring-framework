@@ -379,7 +379,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		
 		// isInfrastructureClass(cls)用户判断当前cls是否为spring自带的bean, 自带的bean是不用代理的, 见下
 		// Advice/Pointcut/Advisor/AopInfrastructureBean的类或子类
-		// shouldSkip()用于判断当前bean是否应该被略过
+		// shouldSkip()用于判断当前bean是否应该被略过(bean的名称是否以.ORIGINAL结尾)
 		if (isInfrastructureClass(bean.getClass()) || shouldSkip(bean.getClass(), beanName)) {
 			// 对当前bean进行缓存
 			this.advisedBeans.put(cacheKey, Boolean.FALSE);
@@ -395,7 +395,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			Object proxy = createProxy(
 					bean.getClass(), beanName, specificInterceptors, new SingletonTargetSource(bean));
 			// 缓存生成的代理bean的类型, 并且返回生成的代理bean 
-			this.proxyTypes.put(cacheKey, proxy.getClass());
+ 			this.proxyTypes.put(cacheKey, proxy.getClass());
 			return proxy;
 		}
 
@@ -500,13 +500,17 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	private Object buildProxy(Class<?> beanClass, @Nullable String beanName,
 			@Nullable Object[] specificInterceptors, TargetSource targetSource, boolean classOnly) {
 
+		// 给bean定义设置一个属性originalTargetClass(不重要)
 		if (this.beanFactory instanceof ConfigurableListableBeanFactory) {
 			AutoProxyUtils.exposeTargetClass((ConfigurableListableBeanFactory) this.beanFactory, beanName, beanClass);
 		}
 
+		// 创建一个代理工厂
 		ProxyFactory proxyFactory = new ProxyFactory();
+		// 获取当前类相关属性
 		proxyFactory.copyFrom(this);
 
+		// 判断对于给定的bean是否应该使用targetClass代理而不是它的接口代理
 		if (proxyFactory.isProxyTargetClass()) {
 			// Explicit handling of JDK proxy targets and lambdas (for introduction advice scenarios)
 			if (Proxy.isProxyClass(beanClass) || ClassUtils.isLambdaClass(beanClass)) {
@@ -517,30 +521,38 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			}
 		}
 		else {
-			// No proxyTargetClass flag enforced, let's apply our default checks...
+			// 检查preserveTargetClass, 判断是使用JDK代理还是 CGLIB代理
 			if (shouldProxyTargetClass(beanClass, beanName)) {
+				// 如果是使用CGLIB代理
 				proxyFactory.setProxyTargetClass(true);
 			}
 			else {
+				// 添加代理接口
 				evaluateProxyInterfaces(beanClass, proxyFactory);
 			}
 		}
 
+		// 构建增强器
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
+		// 设置增强器
 		proxyFactory.addAdvisors(advisors);
+		// 设置要代理的类(MathCalculator)
 		proxyFactory.setTargetSource(targetSource);
+		// 定制代理
 		customizeProxyFactory(proxyFactory);
-
+		// 代理工厂配置之后, 是否还允许被修改, 默认值是false
 		proxyFactory.setFrozen(this.freezeProxy);
 		if (advisorsPreFiltered()) {
 			proxyFactory.setPreFiltered(true);
 		}
 
+		// 新版本新增
 		// Use original ClassLoader if bean class not locally loaded in overriding class loader
 		ClassLoader classLoader = getProxyClassLoader();
 		if (classLoader instanceof SmartClassLoader && classLoader != beanClass.getClassLoader()) {
 			classLoader = ((SmartClassLoader) classLoader).getOriginalClassLoader();
 		}
+		// classOnly是false, 所以走getProxy
 		return (classOnly ? proxyFactory.getProxyClass(classLoader) : proxyFactory.getProxy(classLoader));
 	}
 
