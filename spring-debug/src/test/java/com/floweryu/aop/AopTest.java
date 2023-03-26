@@ -1,7 +1,9 @@
 package com.floweryu.aop;
 
 import com.floweryu.aop.config.AopConfig;
+import com.floweryu.aop.processor.MyBean;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -11,6 +13,8 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
  */
 public class AopTest {
 	
+	@Autowired
+	private MyBean myBean;
 	
 	@Test
 	public void aopTest() {
@@ -28,5 +32,15 @@ public class AopTest {
 		ClassPathXmlApplicationContext ac = new ClassPathXmlApplicationContext("aop.xml");
 		MathCalculator bean = ac.getBean(MathCalculator.class);
 		bean.div(8, 2);
+	}
+	
+	@Test
+	public void test() {
+		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AopConfig.class);
+		// 到这一步就生成了代理对象, 所以就可以进行方法的调用
+		// 但是此时有6个Advisor, 他们在执行的时候是按照某个顺序来执行的, 而且由一个通知会跳转到另一个通知
+		// 所以, 还需要构建一个拦截器链(责任链模式), 只有创建好链式结构, 才能顺利向下执行
+		MyBean myBean = context.getBean(MyBean.class);
+		System.out.println(myBean);
 	}
 }

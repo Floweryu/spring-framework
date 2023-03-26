@@ -2,6 +2,7 @@ package com.floweryu.aop.config;
 
 import com.floweryu.aop.LogAspects;
 import com.floweryu.aop.MathCalculator;
+import com.floweryu.aop.processor.MyBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
@@ -23,4 +24,9 @@ public class AopConfig {
 	public LogAspects logAspects() {
 		return new LogAspects();
 	}
-}
+	
+	@Bean
+	public MyBean myBean() {
+		return new MyBean();
+	}
+} 

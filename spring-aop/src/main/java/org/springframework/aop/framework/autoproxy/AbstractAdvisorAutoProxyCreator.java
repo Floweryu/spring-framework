@@ -101,7 +101,7 @@ public abstract class AbstractAdvisorAutoProxyCreator extends AbstractAutoProxyC
 		// 提供hook方法, 用于对目标Advisor进行扩展
 		extendAdvisors(eligibleAdvisors);
 		if (!eligibleAdvisors.isEmpty()) {
-			// 对需要代理的Advisor按照一定规则进行排序. 为啥要排序? 我也不知道, 没看懂里面的源码
+			// 对需要代理的Advisor按照一定规则进行排序. 为啥要排序? 
 			// 里面大概是一个拓扑排序(有向无环图, 每次排序都选择没有前驱的节点)
 			// 可能在有多个切面的情况下, 多个切点使用了同一个连接点, 这样就需要有一定的顺序
 			eligibleAdvisors = sortAdvisors(eligibleAdvisors);
