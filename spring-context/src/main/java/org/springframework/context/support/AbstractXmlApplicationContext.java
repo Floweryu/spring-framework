@@ -44,7 +44,11 @@ import org.springframework.lang.Nullable;
  * @see org.springframework.beans.factory.xml.XmlBeanDefinitionReader
  */
 public abstract class AbstractXmlApplicationContext extends AbstractRefreshableConfigApplicationContext {
-
+	
+	/**
+	 * 设置xml文件验证标志，默认为true
+	 * 验证xml文件是否xsd格式（这里以xsd为例, 目前用的较多）
+	 */
 	private boolean validating = true;
 
 

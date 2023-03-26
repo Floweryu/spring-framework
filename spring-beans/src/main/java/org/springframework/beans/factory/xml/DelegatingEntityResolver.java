@@ -60,6 +60,8 @@ public class DelegatingEntityResolver implements EntityResolver {
 	 */
 	public DelegatingEntityResolver(@Nullable ClassLoader classLoader) {
 		this.dtdResolver = new BeansDtdResolver();
+		// 当完成这行代码调用之后, 会发现奇怪的事情: schemaResolver对象的schemaMappings属性被完成了赋值操作, 但是遍历完成所有代码并没有发现显式调用
+		// 因为在debug的时候, 程序在运行期间需要显示当前类的所有信息, idea会调用toString方法, 只不过这个过程没有识别到
 		this.schemaResolver = new PluggableSchemaResolver(classLoader);
 	}
 
