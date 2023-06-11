@@ -1,8 +1,11 @@
 package com.floweryu;
 
-import com.floweryu.context.MyClassPathXmlApplicaionContext;
+import com.floweryu.config.EditorConfig;
+import com.floweryu.editor.Address;
+import com.floweryu.editor.Customer;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 /**
@@ -13,7 +16,15 @@ public class StartTest {
 	
 	@Test
 	public void startTest() {
-		MyClassPathXmlApplicaionContext ac = new MyClassPathXmlApplicaionContext("spring-${username}.xml");
-		ApplicationContext context = new ClassPathXmlApplicationContext("spring-${username}.xml");
+//		MyClassPathXmlApplicaionContext ac = new MyClassPathXmlApplicaionContext("spring-${username}.xml");
+		ApplicationContext context = new ClassPathXmlApplicationContext("application.xml");
+	}
+
+	@Test
+	public void properTest() {
+		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(EditorConfig.class);
+		Customer bean = context.getBean(Customer.class);
+		Address address = bean.getAddress();
+		System.out.println(address);
 	}
 }
