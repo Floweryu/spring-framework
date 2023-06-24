@@ -102,6 +102,12 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.CollectionUtils;
 
 /**
+ * 后置处理器类，主要功能是参与BeanFactory的建造：
+ * 1. 解析@Configuration的配置类
+ * 2. 解析@ComponentScan扫描的包
+ * 3. 解析@ComponentScans扫描的包
+ * 4. 解析@Import注解
+ * <p>
  * {@link BeanFactoryPostProcessor} used for bootstrapping processing of
  * {@link Configuration @Configuration} classes.
  *

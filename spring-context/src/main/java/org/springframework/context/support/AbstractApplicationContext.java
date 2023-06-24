@@ -569,10 +569,13 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 			try {
 				// Allows post-processing of the bean factory in context subclasses.
+				// 子类可以实现该方法，但一般不用
+				// 可以参考org.springframework.web.context.support.StaticWebApplicationContext.postProcessBeanFactory中有实现
 				postProcessBeanFactory(beanFactory);
 
 				StartupStep beanPostProcess = this.applicationStartup.start("spring.context.beans.post-process");
 				// Invoke factory processors registered as beans in the context.
+				// 调用各种beanFactory处理器
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
@@ -730,9 +733,16 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.registerResolvableDependency(ApplicationContext.class, this);
 
 		// Register early post-processor for detecting inner beans as ApplicationListeners.
+		// 注册BPP
 		beanFactory.addBeanPostProcessor(new ApplicationListenerDetector(this));
 
 		// Detect a LoadTimeWeaver and prepare for weaving, if found.
+		// 增加对AspectJ的支持，在java中植入有三种方式：编译器植入、类加载器植入、运行期植入。
+		// 编译器植入：在Java编译器中将切面植入到java类中
+		// 类加载器植入：通过特殊类加载器，在类字节码加载到jvm时植入切面
+		// 运行期植入：采用cglib和jdk进行切面的植入
+		// AspectJ提供了两种植入方式：第一种是通过特殊编译器，在编译器将AspectJ语言编写的切面类植入到java类中
+		// 第二种是类加载期植入：就是下面的loadTimeWeaver
 		if (!NativeDetector.inNativeImage() && beanFactory.containsBean(LOAD_TIME_WEAVER_BEAN_NAME)) {
 			beanFactory.addBeanPostProcessor(new LoadTimeWeaverAwareProcessor(beanFactory));
 			// Set a temporary ClassLoader for type matching.
@@ -740,6 +750,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		}
 
 		// Register default environment beans.
+		// 注册系统环境bean到一级缓存
 		if (!beanFactory.containsLocalBean(ENVIRONMENT_BEAN_NAME)) {
 			beanFactory.registerSingleton(ENVIRONMENT_BEAN_NAME, getEnvironment());
 		}
@@ -765,11 +776,15 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	}
 
 	/**
+	 * 实例化并且调用所有BeanFactoryPostProcessor，遵循指定的顺序
+	 * 必须在单例实例化之前调用
 	 * Instantiate and invoke all registered BeanFactoryPostProcessor beans,
 	 * respecting explicit order if given.
 	 * <p>Must be called before singleton instantiation.
 	 */
 	protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
+		// 获取当前上下文的beanFactoryPostProcessors变量，并且调用执行所有已经注册的beanFactoryPostProcessors
+		// 默认情况下通过getBeanFactoryPostProcessors()获取已经注册的BPP，但点进去默认是空的，如何扩展？
 		PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());
 
 		// Detect a LoadTimeWeaver and prepare for weaving, if found in the meantime

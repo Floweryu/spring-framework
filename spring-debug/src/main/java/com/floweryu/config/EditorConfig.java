@@ -1,10 +1,8 @@
 package com.floweryu.config;
 
 import com.floweryu.editor.Address;
-import com.floweryu.editor.MyAddressPropertyEditor;
-import com.floweryu.editor.MyAddressPropertyEditorRegistrar;
 import com.floweryu.editor.Customer;
-import org.springframework.beans.PropertyEditorRegistrar;
+import com.floweryu.editor.MyAddressPropertyEditor;
 import org.springframework.beans.factory.config.CustomEditorConfigurer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
