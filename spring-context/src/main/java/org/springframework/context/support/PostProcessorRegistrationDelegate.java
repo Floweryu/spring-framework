@@ -195,6 +195,7 @@ final class PostProcessorRegistrationDelegate {
 
 			// Now, invoke the postProcessBeanFactory callback of all processors handled so far.
 			// 调用所有BeanDefinitionRegistryPostProcessor的postProcessBeanFactory方法
+			// 因为实现了BeanDefinitionRegistryPostProcessor接口一定也实现了BeanFactoryPostProcessor接口
 			invokeBeanFactoryPostProcessors(registryProcessors, beanFactory);
 			// 调用入参beanFactoryPostProcessors中所有普通BeanFactoryPostProcessor的postProcessBeanFactory方法
 			invokeBeanFactoryPostProcessors(regularPostProcessors, beanFactory);
@@ -206,7 +207,9 @@ final class PostProcessorRegistrationDelegate {
 			invokeBeanFactoryPostProcessors(beanFactoryPostProcessors, beanFactory);
 		}
 
-		// 到此为止，入参beanFactoryPostProcessors和容器中所有的BeanDefinitionRegistryPostProcessors已经全部处理完毕，下面开始处理容器中所有的BeanFactoryPostProcessor
+		// 到此为止，入参beanFactoryPostProcessors和容器中所有的BeanDefinitionRegistryPostProcessors已经全部处理完毕，
+		// 下面开始处理容器中通过@Component注解提供的BeanFactoryPostProcessor，而不是ac.addBeanFactoryPostProcessor提供的
+		// 上面执行的，仅仅是程序员通过add到spring容器中的beanFactoryPostProcessor
 
 		// Do not initialize FactoryBeans here: We need to leave all regular beans
 		// uninitialized to let the bean factory post-processors apply to them!

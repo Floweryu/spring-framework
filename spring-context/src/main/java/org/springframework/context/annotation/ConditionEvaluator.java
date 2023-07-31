@@ -78,11 +78,20 @@ class ConditionEvaluator {
 	 * @return if the item should be skipped
 	 */
 	public boolean shouldSkip(@Nullable AnnotatedTypeMetadata metadata, @Nullable ConfigurationPhase phase) {
+		// metadata为空，或者配置类中不存在@Conditional注解
 		if (metadata == null || !metadata.isAnnotated(Conditional.class.getName())) {
 			return false;
 		}
 
+		// 采用递归方式执行
 		if (phase == null) {
+			// ConfigurationClassUtils.isConfigurationCandidate()主要逻辑如下：
+			// 1. metadata是AnnotationMetadata类的一个实例
+			// 2. 检查bean中是否使用@Configuration注解
+			// 3. 检查bean是否为一个接口
+			// 4. 检查bean中是否包含@Component, @ComponentScan, @Import, @ImportResource中任意一个
+			// 5. 检查bean中是否有@Bean注解
+			// 只要满足1,2或者1,3或者1,4或者1,5就会继续递归
 			if (metadata instanceof AnnotationMetadata &&
 					ConfigurationClassUtils.isConfigurationCandidate((AnnotationMetadata) metadata)) {
 				return shouldSkip(metadata, ConfigurationPhase.PARSE_CONFIGURATION);
@@ -93,11 +102,12 @@ class ConditionEvaluator {
 		List<Condition> conditions = new ArrayList<>();
 		for (String[] conditionClasses : getConditionClasses(metadata)) {
 			for (String conditionClass : conditionClasses) {
+				// 获取到@Conditional注解后面的value数组
 				Condition condition = getCondition(conditionClass, this.context.getClassLoader());
 				conditions.add(condition);
 			}
 		}
-
+		// 对相关条件进行排序操作
 		AnnotationAwareOrderComparator.sort(conditions);
 
 		for (Condition condition : conditions) {
@@ -105,7 +115,12 @@ class ConditionEvaluator {
 			if (condition instanceof ConfigurationCondition) {
 				requiredPhase = ((ConfigurationCondition) condition).getConfigurationPhase();
 			}
+			// requiredPhase只可能是空或者是ConigurationCondition的一个实例对象
 			if ((requiredPhase == null || requiredPhase == phase) && !condition.matches(this.context, metadata)) {
+				// 1. requiredPhase不是ConfigurationCondition的实例
+				// 2. requiredPhase == phase，phase可以为PARSE_CONFIGURATION或者REGISTER_BEAN
+				// 3. condition.matches(this.context, metadata)返回false
+				// 如果1,2或者1,3成立，则在此函数上层阻断bean注入spring容器
 				return true;
 			}
 		}
