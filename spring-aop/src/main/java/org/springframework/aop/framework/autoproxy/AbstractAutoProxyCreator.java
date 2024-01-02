@@ -329,6 +329,10 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			// 如果beanName为空, 则以当前bean对应的class为key
 			Object cacheKey = getCacheKey(bean.getClass(), beanName);
 			// 判断当前bean是否正在被代理, 如果正在被代理则不进行封装
+			// remove方法返回被移除的value，上面getEarlyBeanReference说了它记录的是原始bean
+			// 若被循环引用了，那就是执行了上面的getEarlyBeanReference方法，所以此时remove返回值肯定是==bean的（注意此时方法入参的bean还是原始对象）
+			// 若没有被循环引用，getEarlyBeanReference()不执行 所以remove方法返回null，所以就进入if执行此处的创建代理对象方法~~~
+			// 自动代理创建器它保证了代理对象只会被创建一次，而且支持循环依赖的自动注入的依旧是代理对象。
 			if (this.earlyProxyReferences.remove(cacheKey) != bean) {
 				// 如果bean需要被代理, 则需要封装指定的bean
 				return wrapIfNecessary(bean, beanName, cacheKey);
