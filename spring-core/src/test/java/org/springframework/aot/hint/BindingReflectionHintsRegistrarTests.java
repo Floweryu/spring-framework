@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,21 @@
 
 package org.springframework.aot.hint;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.aot.hint.predicate.RuntimeHintsPredicates;
@@ -33,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @author Sebastien Deleuze
  */
-public class BindingReflectionHintsRegistrarTests {
+class BindingReflectionHintsRegistrarTests {
 
 	private final BindingReflectionHintsRegistrar bindingRegistrar = new BindingReflectionHintsRegistrar();
 
@@ -222,6 +232,19 @@ public class BindingReflectionHintsRegistrarTests {
 	}
 
 	@Test
+	void registerTypeForSerializationWithRecordWithProperty() {
+		bindingRegistrar.registerReflectionHints(this.hints.reflection(), SampleRecordWithProperty.class);
+		assertThat(RuntimeHintsPredicates.reflection().onMethod(SampleRecordWithProperty.class, "getNameProperty"))
+				.accepts(this.hints);
+	}
+
+	@Test
+	void registerTypeForSerializationWithAnonymousClass() {
+		Runnable anonymousRunnable = () -> { };
+		bindingRegistrar.registerReflectionHints(this.hints.reflection(), anonymousRunnable.getClass());
+	}
+
+	@Test
 	void registerTypeForJacksonAnnotations() {
 		bindingRegistrar.registerReflectionHints(this.hints.reflection(), SampleClassWithJsonProperty.class);
 		assertThat(RuntimeHintsPredicates.reflection().onField(SampleClassWithJsonProperty.class, "privateField"))
@@ -236,6 +259,24 @@ public class BindingReflectionHintsRegistrarTests {
 		assertThat(RuntimeHintsPredicates.reflection().onField(SampleClassWithJsonProperty.class, "privateField"))
 				.accepts(this.hints);
 		assertThat(RuntimeHintsPredicates.reflection().onMethod(SampleClassWithJsonProperty.class, "packagePrivateMethod").invoke())
+				.accepts(this.hints);
+	}
+
+	@Test
+	void registerTypeForJacksonCustomStrategy() {
+		bindingRegistrar.registerReflectionHints(this.hints.reflection(), SampleRecordWithJacksonCustomStrategy.class);
+		assertThat(RuntimeHintsPredicates.reflection().onType(PropertyNamingStrategies.UpperSnakeCaseStrategy.class).withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
+				.accepts(this.hints);
+		assertThat(RuntimeHintsPredicates.reflection().onType(SampleRecordWithJacksonCustomStrategy.Builder.class).withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
+				.accepts(this.hints);
+	}
+
+	@Test
+	void registerTypeForAnnotationOnMethodAndField() {
+		bindingRegistrar.registerReflectionHints(this.hints.reflection(), SampleClassWithJsonProperty.class);
+		assertThat(RuntimeHintsPredicates.reflection().onType(CustomDeserializer1.class).withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
+				.accepts(this.hints);
+		assertThat(RuntimeHintsPredicates.reflection().onType(CustomDeserializer2.class).withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
 				.accepts(this.hints);
 	}
 
@@ -323,17 +364,76 @@ public class BindingReflectionHintsRegistrarTests {
 
 	record SampleRecord(String name) {}
 
+	record SampleRecordWithProperty(String name) {
+
+		public String getNameProperty() {
+			return "";
+		}
+	}
+
 	static class SampleClassWithJsonProperty {
 
 		@JsonProperty
+		@JsonDeserialize(using = CustomDeserializer1.class)
 		private String privateField = "";
 
 		@JsonProperty
+		@JsonDeserialize(using = CustomDeserializer2.class)
 		String packagePrivateMethod() {
 			return "";
 		}
 	}
 
 	static class SampleClassWithInheritedJsonProperty extends SampleClassWithJsonProperty {}
+
+	@JsonNaming(PropertyNamingStrategies.UpperSnakeCaseStrategy.class)
+	@JsonDeserialize(builder = SampleRecordWithJacksonCustomStrategy.Builder.class)
+	record SampleRecordWithJacksonCustomStrategy(String name) {
+
+		@JsonPOJOBuilder(withPrefix = "")
+		public static class Builder {
+			private String name;
+
+			public static Builder newInstance() {
+				return new Builder();
+			}
+
+			public Builder name(String name) {
+				this.name = name;
+				return this;
+			}
+
+			public SampleRecordWithJacksonCustomStrategy build() {
+				return new SampleRecordWithJacksonCustomStrategy(name);
+			}
+		}
+
+	}
+
+	@SuppressWarnings("serial")
+	static class CustomDeserializer1 extends StdDeserializer<LocalDate> {
+
+		public CustomDeserializer1() {
+			super(CustomDeserializer1.class);
+		}
+
+		@Override
+		public LocalDate deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
+			return null;
+		}
+	}
+
+	@SuppressWarnings("serial")
+	static class CustomDeserializer2 extends StdDeserializer<LocalDate> {
+
+		public CustomDeserializer2() {
+			super(CustomDeserializer2.class);
+		}
+
+		@Override
+		public LocalDate deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
+			return null;
+		}
+	}
 
 }

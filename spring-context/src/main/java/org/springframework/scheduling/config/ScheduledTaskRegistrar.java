@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
+import io.micrometer.observation.ObservationRegistry;
+
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.lang.Nullable;
@@ -42,8 +44,8 @@ import org.springframework.util.CollectionUtils;
  * Helper bean for registering tasks with a {@link TaskScheduler}, typically using cron
  * expressions.
  *
- * <p>As of Spring 3.1, {@code ScheduledTaskRegistrar} has a more prominent user-facing
- * role when used in conjunction with the {@link
+ * <p>{@code ScheduledTaskRegistrar} has a more prominent user-facing role when used in
+ * conjunction with the {@link
  * org.springframework.scheduling.annotation.EnableAsync @EnableAsync} annotation and its
  * {@link org.springframework.scheduling.annotation.SchedulingConfigurer
  * SchedulingConfigurer} callback interface.
@@ -53,6 +55,7 @@ import org.springframework.util.CollectionUtils;
  * @author Tobias Montagna-Hay
  * @author Sam Brannen
  * @author Arjen Poutsma
+ * @author Brian Clozel
  * @since 3.0
  * @see org.springframework.scheduling.annotation.EnableAsync
  * @see org.springframework.scheduling.annotation.SchedulingConfigurer
@@ -76,6 +79,9 @@ public class ScheduledTaskRegistrar implements ScheduledTaskHolder, Initializing
 
 	@Nullable
 	private ScheduledExecutorService localExecutor;
+
+	@Nullable
+	private ObservationRegistry observationRegistry;
 
 	@Nullable
 	private List<TriggerTask> triggerTasks;
@@ -111,11 +117,11 @@ public class ScheduledTaskRegistrar implements ScheduledTaskHolder, Initializing
 		if (scheduler == null) {
 			this.taskScheduler = null;
 		}
-		else if (scheduler instanceof TaskScheduler) {
-			this.taskScheduler = (TaskScheduler) scheduler;
+		else if (scheduler instanceof TaskScheduler ts) {
+			this.taskScheduler = ts;
 		}
-		else if (scheduler instanceof ScheduledExecutorService) {
-			this.taskScheduler = new ConcurrentTaskScheduler(((ScheduledExecutorService) scheduler));
+		else if (scheduler instanceof ScheduledExecutorService ses) {
+			this.taskScheduler = new ConcurrentTaskScheduler(ses);
 		}
 		else {
 			throw new IllegalArgumentException("Unsupported scheduler type: " + scheduler.getClass());
@@ -130,6 +136,22 @@ public class ScheduledTaskRegistrar implements ScheduledTaskHolder, Initializing
 		return this.taskScheduler;
 	}
 
+	/**
+	 * Return the {@link ObservationRegistry} for this registrar.
+	 * @since 6.1
+	 */
+	@Nullable
+	public ObservationRegistry getObservationRegistry() {
+		return this.observationRegistry;
+	}
+
+	/**
+	 * Configure an {@link ObservationRegistry} to record observations for scheduled tasks.
+	 * @since 6.1
+	 */
+	public void setObservationRegistry(@Nullable ObservationRegistry observationRegistry) {
+		this.observationRegistry = observationRegistry;
+	}
 
 	/**
 	 * Specify triggered tasks as a Map of Runnables (the tasks) and Trigger objects
@@ -485,7 +507,7 @@ public class ScheduledTaskRegistrar implements ScheduledTaskHolder, Initializing
 		}
 		if (this.taskScheduler != null) {
 			Duration initialDelay = task.getInitialDelayDuration();
-			if (initialDelay.toMillis() > 0) {
+			if (initialDelay.toNanos() > 0) {
 				Instant startTime = this.taskScheduler.getClock().instant().plus(initialDelay);
 				scheduledTask.future =
 						this.taskScheduler.scheduleAtFixedRate(task.getRunnable(), startTime, task.getIntervalDuration());

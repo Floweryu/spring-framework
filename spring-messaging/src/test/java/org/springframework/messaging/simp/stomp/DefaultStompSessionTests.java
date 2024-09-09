@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -279,7 +279,7 @@ public class DefaultStompSessionTests {
 	public void handleMessageFrame() {
 		this.session.afterConnected(this.connection);
 
-		StompFrameHandler frameHandler = mock(StompFrameHandler.class);
+		StompFrameHandler frameHandler = mock();
 		String destination = "/topic/foo";
 		Subscription subscription = this.session.subscribe(destination, frameHandler);
 
@@ -307,7 +307,7 @@ public class DefaultStompSessionTests {
 		this.session.afterConnected(this.connection);
 		assertThat(this.session.isConnected()).isTrue();
 
-		StompFrameHandler frameHandler = mock(StompFrameHandler.class);
+		StompFrameHandler frameHandler = mock();
 		String destination = "/topic/foo";
 		Subscription subscription = this.session.subscribe(destination, frameHandler);
 
@@ -363,7 +363,7 @@ public class DefaultStompSessionTests {
 		assertThat(accessor.getCommand()).isEqualTo(StompCommand.SEND);
 
 		StompHeaders stompHeaders = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(stompHeaders.size()).as(stompHeaders.toString()).isEqualTo(2);
+		assertThat(stompHeaders).as(stompHeaders.toString()).hasSize(2);
 
 		assertThat(stompHeaders.getDestination()).isEqualTo(destination);
 		assertThat(stompHeaders.getContentType()).isEqualTo(new MimeType("text", "plain", StandardCharsets.UTF_8));
@@ -377,7 +377,7 @@ public class DefaultStompSessionTests {
 		this.session.afterConnected(this.connection);
 		assertThat(this.session.isConnected()).isTrue();
 
-		this.session.setTaskScheduler(mock(TaskScheduler.class));
+		this.session.setTaskScheduler(mock());
 		this.session.setAutoReceipt(true);
 		this.session.send("/topic/foo", "sample payload");
 
@@ -398,7 +398,7 @@ public class DefaultStompSessionTests {
 	@Test // gh-23358
 	public void sendByteArray() {
 		this.session.afterConnected(this.connection);
-		assertThat(this.session.isConnected());
+		assertThat(this.session.isConnected()).isTrue();
 
 		String destination = "/topic/foo";
 		String payload = "sample payload";
@@ -408,7 +408,7 @@ public class DefaultStompSessionTests {
 		StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
 		StompHeaders stompHeaders = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(stompHeaders.size()).as(stompHeaders.toString()).isEqualTo(2);
+		assertThat(stompHeaders).as(stompHeaders.toString()).hasSize(2);
 
 		assertThat(stompHeaders.getDestination()).isEqualTo(destination);
 		assertThat(stompHeaders.getContentType()).isEqualTo(MimeTypeUtils.APPLICATION_OCTET_STREAM);
@@ -449,7 +449,7 @@ public class DefaultStompSessionTests {
 		assertThat(this.session.isConnected()).isTrue();
 
 		String destination = "/topic/foo";
-		StompFrameHandler frameHandler = mock(StompFrameHandler.class);
+		StompFrameHandler frameHandler = mock();
 		Subscription subscription = this.session.subscribe(destination, frameHandler);
 
 		Message<byte[]> message = this.messageCaptor.getValue();
@@ -457,7 +457,7 @@ public class DefaultStompSessionTests {
 		assertThat(accessor.getCommand()).isEqualTo(StompCommand.SUBSCRIBE);
 
 		StompHeaders stompHeaders = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(stompHeaders.size()).as(stompHeaders.toString()).isEqualTo(2);
+		assertThat(stompHeaders).as(stompHeaders.toString()).hasSize(2);
 		assertThat(stompHeaders.getDestination()).isEqualTo(destination);
 		assertThat(stompHeaders.getId()).isEqualTo(subscription.getSubscriptionId());
 	}
@@ -473,7 +473,7 @@ public class DefaultStompSessionTests {
 		StompHeaders stompHeaders = new StompHeaders();
 		stompHeaders.setId(subscriptionId);
 		stompHeaders.setDestination(destination);
-		StompFrameHandler frameHandler = mock(StompFrameHandler.class);
+		StompFrameHandler frameHandler = mock();
 
 		Subscription subscription = this.session.subscribe(stompHeaders, frameHandler);
 		assertThat(subscription.getSubscriptionId()).isEqualTo(subscriptionId);
@@ -483,7 +483,7 @@ public class DefaultStompSessionTests {
 		assertThat(accessor.getCommand()).isEqualTo(StompCommand.SUBSCRIBE);
 
 		stompHeaders = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(stompHeaders.size()).as(stompHeaders.toString()).isEqualTo(2);
+		assertThat(stompHeaders).as(stompHeaders.toString()).hasSize(2);
 		assertThat(stompHeaders.getDestination()).isEqualTo(destination);
 		assertThat(stompHeaders.getId()).isEqualTo(subscriptionId);
 	}
@@ -494,7 +494,7 @@ public class DefaultStompSessionTests {
 		assertThat(this.session.isConnected()).isTrue();
 
 		String destination = "/topic/foo";
-		StompFrameHandler frameHandler = mock(StompFrameHandler.class);
+		StompFrameHandler frameHandler = mock();
 		Subscription subscription = this.session.subscribe(destination, frameHandler);
 		subscription.unsubscribe();
 
@@ -503,7 +503,7 @@ public class DefaultStompSessionTests {
 		assertThat(accessor.getCommand()).isEqualTo(StompCommand.UNSUBSCRIBE);
 
 		StompHeaders stompHeaders = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(stompHeaders.size()).as(stompHeaders.toString()).isEqualTo(1);
+		assertThat(stompHeaders).as(stompHeaders.toString()).hasSize(1);
 		assertThat(stompHeaders.getId()).isEqualTo(subscription.getSubscriptionId());
 	}
 
@@ -518,7 +518,7 @@ public class DefaultStompSessionTests {
 		StompHeaders subscribeHeaders = new StompHeaders();
 		subscribeHeaders.setDestination("/topic/foo");
 		subscribeHeaders.set(headerName, headerValue);
-		StompFrameHandler frameHandler = mock(StompFrameHandler.class);
+		StompFrameHandler frameHandler = mock();
 		Subscription subscription = this.session.subscribe(subscribeHeaders, frameHandler);
 
 		StompHeaders unsubscribeHeaders = new StompHeaders();
@@ -530,7 +530,7 @@ public class DefaultStompSessionTests {
 		assertThat(accessor.getCommand()).isEqualTo(StompCommand.UNSUBSCRIBE);
 
 		StompHeaders stompHeaders = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(stompHeaders.size()).as(stompHeaders.toString()).isEqualTo(2);
+		assertThat(stompHeaders).as(stompHeaders.toString()).hasSize(2);
 		assertThat(stompHeaders.getId()).isEqualTo(subscription.getSubscriptionId());
 		assertThat(stompHeaders.getFirst(headerName)).isEqualTo(headerValue);
 	}
@@ -548,7 +548,7 @@ public class DefaultStompSessionTests {
 		assertThat(accessor.getCommand()).isEqualTo(StompCommand.ACK);
 
 		StompHeaders stompHeaders = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(stompHeaders.size()).as(stompHeaders.toString()).isEqualTo(1);
+		assertThat(stompHeaders).as(stompHeaders.toString()).hasSize(1);
 		assertThat(stompHeaders.getId()).isEqualTo(messageId);
 	}
 
@@ -565,14 +565,14 @@ public class DefaultStompSessionTests {
 		assertThat(accessor.getCommand()).isEqualTo(StompCommand.NACK);
 
 		StompHeaders stompHeaders = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(stompHeaders.size()).as(stompHeaders.toString()).isEqualTo(1);
+		assertThat(stompHeaders).as(stompHeaders.toString()).hasSize(1);
 		assertThat(stompHeaders.getId()).isEqualTo(messageId);
 	}
 
 	@Test
 	public void receiptReceived() {
 		this.session.afterConnected(this.connection);
-		this.session.setTaskScheduler(mock(TaskScheduler.class));
+		this.session.setTaskScheduler(mock());
 
 		AtomicReference<Boolean> received = new AtomicReference<>();
 		AtomicReference<StompHeaders> receivedHeaders = new AtomicReference<>();
@@ -580,7 +580,7 @@ public class DefaultStompSessionTests {
 		StompHeaders headers = new StompHeaders();
 		headers.setDestination("/topic/foo");
 		headers.setReceipt("my-receipt");
-		Subscription subscription = this.session.subscribe(headers, mock(StompFrameHandler.class));
+		Subscription subscription = this.session.subscribe(headers, mock());
 		subscription.addReceiptTask(receiptHeaders -> {
 			received.set(true);
 			receivedHeaders.set(receiptHeaders);
@@ -604,7 +604,7 @@ public class DefaultStompSessionTests {
 	@Test
 	public void receiptReceivedBeforeTaskAdded() {
 		this.session.afterConnected(this.connection);
-		this.session.setTaskScheduler(mock(TaskScheduler.class));
+		this.session.setTaskScheduler(mock());
 
 		AtomicReference<Boolean> received = new AtomicReference<>();
 		AtomicReference<StompHeaders> receivedHeaders = new AtomicReference<>();
@@ -612,7 +612,7 @@ public class DefaultStompSessionTests {
 		StompHeaders headers = new StompHeaders();
 		headers.setDestination("/topic/foo");
 		headers.setReceipt("my-receipt");
-		Subscription subscription = this.session.subscribe(headers, mock(StompFrameHandler.class));
+		Subscription subscription = this.session.subscribe(headers, mock());
 
 		StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.RECEIPT);
 		accessor.setReceiptId("my-receipt");
@@ -635,14 +635,14 @@ public class DefaultStompSessionTests {
 	@Test
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void receiptNotReceived() {
-		TaskScheduler taskScheduler = mock(TaskScheduler.class);
+		TaskScheduler taskScheduler = mock();
 
 		this.session.afterConnected(this.connection);
 		this.session.setTaskScheduler(taskScheduler);
 
 		AtomicReference<Boolean> notReceived = new AtomicReference<>();
 
-		ScheduledFuture future = mock(ScheduledFuture.class);
+		ScheduledFuture future = mock();
 		given(taskScheduler.schedule(any(Runnable.class), any(Instant.class))).willReturn(future);
 
 		StompHeaders headers = new StompHeaders();
@@ -687,7 +687,7 @@ public class DefaultStompSessionTests {
 		Message<byte[]> message = this.messageCaptor.getValue();
 		StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 		headers = StompHeaders.readOnlyStompHeaders(accessor.getNativeHeaders());
-		assertThat(headers.size()).as(headers.toString()).isEqualTo(1);
+		assertThat(headers).as(headers.toString()).hasSize(1);
 		assertThat(headers.get("foo")).hasSize(1);
 		assertThat(headers.get("foo").get(0)).isEqualTo("bar");
 

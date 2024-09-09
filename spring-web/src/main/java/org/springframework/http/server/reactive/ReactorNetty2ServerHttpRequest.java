@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import org.springframework.core.io.buffer.Netty5DataBufferFactory;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpLogging;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.support.Netty5HeadersAdapter;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
@@ -67,7 +68,8 @@ class ReactorNetty2ServerHttpRequest extends AbstractServerHttpRequest {
 	public ReactorNetty2ServerHttpRequest(HttpServerRequest request, Netty5DataBufferFactory bufferFactory)
 			throws URISyntaxException {
 
-		super(initUri(request), "", new Netty5HeadersAdapter(request.requestHeaders()));
+		super(HttpMethod.valueOf(request.method().name()), initUri(request), "",
+				new Netty5HeadersAdapter(request.requestHeaders()));
 		Assert.notNull(bufferFactory, "DataBufferFactory must not be null");
 		this.request = request;
 		this.bufferFactory = bufferFactory;
@@ -80,6 +82,12 @@ class ReactorNetty2ServerHttpRequest extends AbstractServerHttpRequest {
 
 	private static URI resolveBaseUrl(HttpServerRequest request) throws URISyntaxException {
 		String scheme = getScheme(request);
+
+		InetSocketAddress hostAddress = request.hostAddress();
+		if (hostAddress != null) {
+			return new URI(scheme, null, hostAddress.getHostString(), hostAddress.getPort(), null, null, null);
+		}
+
 		CharSequence charSequence = request.requestHeaders().get(HttpHeaderNames.HOST);
 		if (charSequence != null) {
 			String header = charSequence.toString();
@@ -103,12 +111,8 @@ class ReactorNetty2ServerHttpRequest extends AbstractServerHttpRequest {
 				return new URI(scheme, header, null, null);
 			}
 		}
-		else {
-			InetSocketAddress localAddress = request.hostAddress();
-			Assert.state(localAddress != null, "No host address available");
-			return new URI(scheme, null, localAddress.getHostString(),
-					localAddress.getPort(), null, null, null);
-		}
+
+		throw new IllegalStateException("Neither local hostAddress nor HOST header available");
 	}
 
 	private static String getScheme(HttpServerRequest request) {
@@ -135,11 +139,6 @@ class ReactorNetty2ServerHttpRequest extends AbstractServerHttpRequest {
 			}
 		}
 		return uri;
-	}
-
-	@Override
-	public HttpMethod getMethod() {
-		return HttpMethod.valueOf(this.request.method().name());
 	}
 
 	@Override

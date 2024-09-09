@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -40,6 +41,7 @@ import org.springframework.aop.framework.autoproxy.AutoProxyUtils;
 import org.springframework.aot.generate.GeneratedMethod;
 import org.springframework.aot.generate.GenerationContext;
 import org.springframework.aot.hint.ExecutableMode;
+import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.ResourceHints;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.TypeReference;
@@ -82,7 +84,9 @@ import org.springframework.core.PriorityOrdered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PropertySourceDescriptor;
 import org.springframework.core.io.support.PropertySourceProcessor;
@@ -102,12 +106,6 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.CollectionUtils;
 
 /**
- * 后置处理器类，主要功能是参与BeanFactory的建造：
- * 1. 解析@Configuration的配置类
- * 2. 解析@ComponentScan扫描的包
- * 3. 解析@ComponentScans扫描的包
- * 4. 解析@Import注解
- * <p>
  * {@link BeanFactoryPostProcessor} used for bootstrapping processing of
  * {@link Configuration @Configuration} classes.
  *
@@ -275,7 +273,6 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 	 */
 	@Override
 	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) {
-		// 根据对应的registry对象生成hashcode值，此对象只会操作一次，如果之前处理过则抛出异常
 		int registryId = System.identityHashCode(registry);
 		if (this.registriesPostProcessed.contains(registryId)) {
 			throw new IllegalStateException(
@@ -326,13 +323,15 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 	}
 
 	@Override
+	@Nullable
 	public BeanFactoryInitializationAotContribution processAheadOfTime(ConfigurableListableBeanFactory beanFactory) {
 		boolean hasPropertySourceDescriptors = !CollectionUtils.isEmpty(this.propertySourceDescriptors);
 		boolean hasImportRegistry = beanFactory.containsBean(IMPORT_REGISTRY_BEAN_NAME);
 		if (hasPropertySourceDescriptors || hasImportRegistry) {
 			return (generationContext, code) -> {
 				if (hasPropertySourceDescriptors) {
-					new PropertySourcesAotContribution(this.propertySourceDescriptors).applyTo(generationContext, code);
+					new PropertySourcesAotContribution(this.propertySourceDescriptors, this::resolvePropertySourceLocation)
+							.applyTo(generationContext, code);
 				}
 				if (hasImportRegistry) {
 					new ImportAwareAotContribution(beanFactory).applyTo(generationContext, code);
@@ -342,29 +341,34 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		return null;
 	}
 
+	@Nullable
+	private Resource resolvePropertySourceLocation(String location) {
+		try {
+			String resolvedLocation = (this.environment != null
+					? this.environment.resolveRequiredPlaceholders(location) : location);
+			return this.resourceLoader.getResource(resolvedLocation);
+		}
+		catch (Exception ex) {
+			return null;
+		}
+	}
+
 	/**
 	 * Build and validate a configuration model based on the registry of
 	 * {@link Configuration} classes.
 	 */
 	public void processConfigBeanDefinitions(BeanDefinitionRegistry registry) {
-		// 创建存放BeanDefinitionHolder的集合
 		List<BeanDefinitionHolder> configCandidates = new ArrayList<>();
-		// 获取所有已经注册的BeanDefinition的beanName
 		String[] candidateNames = registry.getBeanDefinitionNames();
 
-		// 遍历所有要处理的BeanDefinition的名称
 		for (String beanName : candidateNames) {
-			// 获取指定名称的BeanDefinition对象
 			BeanDefinition beanDef = registry.getBeanDefinition(beanName);
-			// 如果BeanDefinition对象中的configurationClass属性不为空，意味着已经处理过，输出日志信息
 			if (beanDef.getAttribute(ConfigurationClassUtils.CONFIGURATION_CLASS_ATTRIBUTE) != null) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("Bean definition has already been processed as a configuration class: " + beanDef);
 				}
 			}
-			// 判断当前BeanDefinition是否加了@Configuration注解或其他@Bean, @Component, @ComponentScan, @Import, @ImportSource注解
 			else if (ConfigurationClassUtils.checkConfigurationClassCandidate(beanDef, this.metadataReaderFactory)) {
-				// 添加到对应集合中
 				configCandidates.add(new BeanDefinitionHolder(beanDef, beanName));
 			}
 		}
@@ -375,7 +379,6 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		}
 
 		// Sort by previously determined @Order value, if applicable
-		// 如果都有@order注解，则进行排序
 		configCandidates.sort((bd1, bd2) -> {
 			int i1 = ConfigurationClassUtils.getOrder(bd1.getBeanDefinition());
 			int i2 = ConfigurationClassUtils.getOrder(bd2.getBeanDefinition());
@@ -384,18 +387,13 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 		// Detect any custom bean name generation strategy supplied through the enclosing application context
 		SingletonBeanRegistry sbr = null;
-		// 判断当前类型是否是SingletonBeanRegistry
-		if (registry instanceof SingletonBeanRegistry) {
-			sbr = (SingletonBeanRegistry) registry;
-			// 判断是否有自定义的beanName生成器
+		if (registry instanceof SingletonBeanRegistry _sbr) {
+			sbr = _sbr;
 			if (!this.localBeanNameGeneratorSet) {
 				BeanNameGenerator generator = (BeanNameGenerator) sbr.getSingleton(
 						AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR);
-				// 如果有自定义命名生成策略
 				if (generator != null) {
-					// 设置组件扫描的BeanName生成策略
 					this.componentScanBeanNameGenerator = generator;
-					// 设置import的BeanName生成策略
 					this.importBeanNameGenerator = generator;
 				}
 			}
@@ -406,18 +404,14 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		}
 
 		// Parse each @Configuration class
-		// 实例化ConfigurationClassParser类，并初始化相关参数，完成配置类的解析工作
 		ConfigurationClassParser parser = new ConfigurationClassParser(
 				this.metadataReaderFactory, this.problemReporter, this.environment,
 				this.resourceLoader, this.componentScanBeanNameGenerator, registry);
 
-		// 将之前加入configCandidates的去重
 		Set<BeanDefinitionHolder> candidates = new LinkedHashSet<>(configCandidates);
-		// 判断是否已经处理过
 		Set<ConfigurationClass> alreadyParsed = new HashSet<>(configCandidates.size());
 		do {
 			StartupStep processConfig = this.applicationStartup.start("spring.context.config-classes.parse");
-			// 解析带有@Bean, @Component, @ComponentScan, @Import, @ImportSource的BeanDefinition
 			parser.parse(candidates);
 			parser.validate();
 
@@ -617,7 +611,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		}
 
 		private void generateAddPostProcessorMethod(MethodSpec.Builder method, Map<String, String> mappings) {
-			method.addJavadoc("Add ImportAwareBeanPostProcessor to support ImportAware beans");
+			method.addJavadoc("Add ImportAwareBeanPostProcessor to support ImportAware beans.");
 			method.addModifiers(Modifier.PRIVATE);
 			method.addParameter(DefaultListableBeanFactory.class, BEAN_FACTORY_VARIABLE);
 			method.addCode(generateAddPostProcessorCode(mappings));
@@ -667,17 +661,36 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 		private final List<PropertySourceDescriptor> descriptors;
 
-		PropertySourcesAotContribution(List<PropertySourceDescriptor> descriptors) {
+		private final Function<String, Resource> resourceResolver;
+
+		PropertySourcesAotContribution(List<PropertySourceDescriptor> descriptors, Function<String, Resource> resourceResolver) {
 			this.descriptors = descriptors;
+			this.resourceResolver = resourceResolver;
 		}
 
 		@Override
 		public void applyTo(GenerationContext generationContext, BeanFactoryInitializationCode beanFactoryInitializationCode) {
+			registerRuntimeHints(generationContext.getRuntimeHints());
 			GeneratedMethod generatedMethod = beanFactoryInitializationCode
 					.getMethods()
 					.add("processPropertySources", this::generateAddPropertySourceProcessorMethod);
 			beanFactoryInitializationCode
 					.addInitializer(generatedMethod.toMethodReference());
+		}
+
+		private void registerRuntimeHints(RuntimeHints hints) {
+			for (PropertySourceDescriptor descriptor : this.descriptors) {
+				Class<?> factory = descriptor.propertySourceFactory();
+				if (factory != null) {
+					hints.reflection().registerType(factory, MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+				}
+				for (String location : descriptor.locations()) {
+					Resource resource = this.resourceResolver.apply(location);
+					if (resource != null && resource.exists() && resource instanceof ClassPathResource classpathResource) {
+						hints.resources().registerPattern(classpathResource.getPath());
+					}
+				}
+			}
 		}
 
 		private void generateAddPropertySourceProcessorMethod(MethodSpec.Builder method) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ import org.springframework.core.log.LogFormatUtils;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.codec.ResourceHttpMessageWriter;
@@ -54,9 +53,9 @@ import org.springframework.util.ResourceUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.HandlerMapping;
 import org.springframework.web.server.MethodNotAllowedException;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebHandler;
+import org.springframework.web.util.pattern.PathPattern;
 
 /**
  * {@code HttpRequestHandler} that serves static resources in an optimized way
@@ -402,7 +401,7 @@ public class ResourceWebHandler implements WebHandler, InitializingBean {
 		return getResource(exchange)
 				.switchIfEmpty(Mono.defer(() -> {
 					logger.debug(exchange.getLogPrefix() + "Resource not found");
-					return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND));
+					return Mono.error(new NoResourceFoundException(getResourcePath(exchange)));
 				}))
 				.flatMap(resource -> {
 					try {
@@ -456,10 +455,8 @@ public class ResourceWebHandler implements WebHandler, InitializingBean {
 	}
 
 	protected Mono<Resource> getResource(ServerWebExchange exchange) {
-		String name = HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE;
-		PathContainer pathWithinHandler = exchange.getRequiredAttribute(name);
-
-		String path = processPath(pathWithinHandler.value());
+		String rawPath = getResourcePath(exchange);
+		String path = processPath(rawPath);
 		if (!StringUtils.hasText(path) || isInvalidPath(path)) {
 			return Mono.empty();
 		}
@@ -474,6 +471,15 @@ public class ResourceWebHandler implements WebHandler, InitializingBean {
 				.flatMap(resource -> this.transformerChain.transform(exchange, resource));
 	}
 
+	private String getResourcePath(ServerWebExchange exchange) {
+		PathPattern pattern = exchange.getRequiredAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+		if (!pattern.hasPatternSyntax()) {
+			return pattern.getPatternString();
+		}
+		PathContainer pathWithinHandler = exchange.getRequiredAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
+		return pathWithinHandler.value();
+	}
+
 	/**
 	 * Process the given resource path.
 	 * <p>The default implementation replaces:
@@ -484,7 +490,6 @@ public class ResourceWebHandler implements WebHandler, InitializingBean {
 	 * with a single "/" or "". For example {@code "  / // foo/bar"}
 	 * becomes {@code "/foo/bar"}.
 	 * </ul>
-	 * @since 3.2.12
 	 */
 	protected String processPath(String path) {
 		path = StringUtils.replace(path, "\\", "/");

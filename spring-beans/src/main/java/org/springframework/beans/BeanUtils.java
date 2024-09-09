@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,10 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.net.URI;
-import java.net.URL;
-import java.time.temporal.Temporal;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -246,7 +242,8 @@ public abstract class BeanUtils {
 			// A single public constructor
 			return (Constructor<T>) ctors[0];
 		}
-		else if (ctors.length == 0){
+		else if (ctors.length == 0) {
+			// No public constructors -> check non-public
 			ctors = clazz.getDeclaredConstructors();
 			if (ctors.length == 1) {
 				// A single non-public constructor, e.g. from a non-public record type
@@ -661,26 +658,22 @@ public abstract class BeanUtils {
 	}
 
 	/**
-	 * Check if the given type represents a "simple" value type: a primitive or
-	 * primitive wrapper, an enum, a String or other CharSequence, a Number, a
-	 * Date, a Temporal, a URI, a URL, a Locale, or a Class.
+	 * Check if the given type represents a "simple" value type for
+	 * bean property and data binding purposes:
+	 * a primitive or primitive wrapper, an {@code Enum}, a {@code String}
+	 * or other {@code CharSequence}, a {@code Number}, a {@code Date},
+	 * a {@code Temporal}, a {@code UUID}, a {@code URI}, a {@code URL},
+	 * a {@code Locale}, or a {@code Class}.
 	 * <p>{@code Void} and {@code void} are not considered simple value types.
+	 * <p>As of 6.1, this method delegates to {@link ClassUtils#isSimpleValueType}
+	 * as-is but could potentially add further rules for bean property purposes.
 	 * @param type the type to check
 	 * @return whether the given type represents a "simple" value type
 	 * @see #isSimpleProperty(Class)
+	 * @see ClassUtils#isSimpleValueType(Class)
 	 */
 	public static boolean isSimpleValueType(Class<?> type) {
-		return (Void.class != type && void.class != type &&
-				(ClassUtils.isPrimitiveOrWrapper(type) ||
-				Enum.class.isAssignableFrom(type) ||
-				CharSequence.class.isAssignableFrom(type) ||
-				Number.class.isAssignableFrom(type) ||
-				Date.class.isAssignableFrom(type) ||
-				Temporal.class.isAssignableFrom(type) ||
-				URI.class == type ||
-				URL.class == type ||
-				Locale.class == type ||
-				Class.class == type));
+		return ClassUtils.isSimpleValueType(type);
 	}
 
 
@@ -790,11 +783,11 @@ public abstract class BeanUtils {
 			actualEditable = editable;
 		}
 		PropertyDescriptor[] targetPds = getPropertyDescriptors(actualEditable);
-		List<String> ignoreList = (ignoreProperties != null ? Arrays.asList(ignoreProperties) : null);
+		Set<String> ignoredProps = (ignoreProperties != null ? new HashSet<>(Arrays.asList(ignoreProperties)) : null);
 
 		for (PropertyDescriptor targetPd : targetPds) {
 			Method writeMethod = targetPd.getWriteMethod();
-			if (writeMethod != null && (ignoreList == null || !ignoreList.contains(targetPd.getName()))) {
+			if (writeMethod != null && (ignoredProps == null || !ignoredProps.contains(targetPd.getName()))) {
 				PropertyDescriptor sourcePd = getPropertyDescriptor(source.getClass(), targetPd.getName());
 				if (sourcePd != null) {
 					Method readMethod = sourcePd.getReadMethod();

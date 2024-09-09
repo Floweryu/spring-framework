@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import org.springframework.util.ReflectionUtils;
 /**
  * Contribute {@link PropertySource property sources} to the {@link Environment}.
  *
- * <p>This class is stateful and merge descriptors with the same name in a
+ * <p>This class is stateful and merges descriptors with the same name in a
  * single {@link PropertySource} rather than creating dedicated ones.
  *
  * @author Stephane Nicoll
@@ -77,9 +77,8 @@ public class PropertySourceProcessor {
 		List<String> locations = descriptor.locations();
 		Assert.isTrue(locations.size() > 0, "At least one @PropertySource(value) location is required");
 		boolean ignoreResourceNotFound = descriptor.ignoreResourceNotFound();
-		PropertySourceFactory factory = (descriptor.propertySourceFactory() != null
-				? instantiateClass(descriptor.propertySourceFactory())
-				: DEFAULT_PROPERTY_SOURCE_FACTORY);
+		PropertySourceFactory factory = (descriptor.propertySourceFactory() != null ?
+				instantiateClass(descriptor.propertySourceFactory()) : DEFAULT_PROPERTY_SOURCE_FACTORY);
 
 		for (String location : locations) {
 			try {
@@ -109,14 +108,14 @@ public class PropertySourceProcessor {
 			// We've already added a version, we need to extend it
 			org.springframework.core.env.PropertySource<?> existing = propertySources.get(name);
 			if (existing != null) {
-				PropertySource<?> newSource = (propertySource instanceof ResourcePropertySource ?
-						((ResourcePropertySource) propertySource).withResourceName() : propertySource);
-				if (existing instanceof CompositePropertySource) {
-					((CompositePropertySource) existing).addFirstPropertySource(newSource);
+				PropertySource<?> newSource = (propertySource instanceof ResourcePropertySource rps ?
+						rps.withResourceName() : propertySource);
+				if (existing instanceof CompositePropertySource cps) {
+					cps.addFirstPropertySource(newSource);
 				}
 				else {
-					if (existing instanceof ResourcePropertySource) {
-						existing = ((ResourcePropertySource) existing).withResourceName();
+					if (existing instanceof ResourcePropertySource rps) {
+						existing = rps.withResourceName();
 					}
 					CompositePropertySource composite = new CompositePropertySource(name);
 					composite.addPropertySource(newSource);

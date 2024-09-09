@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -240,9 +240,8 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 	 */
 	public Set<String> getDirectPaths() {
 		RequestCondition<?> condition = getActivePatternsCondition();
-		return (condition instanceof PathPatternsRequestCondition ?
-				((PathPatternsRequestCondition) condition).getDirectPaths() :
-				((PatternsRequestCondition) condition).getDirectPaths());
+		return (condition instanceof PathPatternsRequestCondition pprc ?
+				pprc.getDirectPaths() : ((PatternsRequestCondition) condition).getDirectPaths());
 	}
 
 	/**
@@ -252,9 +251,18 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 	 */
 	public Set<String> getPatternValues() {
 		RequestCondition<?> condition = getActivePatternsCondition();
-		return (condition instanceof PathPatternsRequestCondition ?
-				((PathPatternsRequestCondition) condition).getPatternValues() :
-				((PatternsRequestCondition) condition).getPatterns());
+		return (condition instanceof PathPatternsRequestCondition pprc ?
+				pprc.getPatternValues() : ((PatternsRequestCondition) condition).getPatterns());
+	}
+
+	/**
+	 * Whether the request mapping has an empty URL path mapping.
+	 * @since 6.0.10
+	 */
+	public boolean isEmptyMapping() {
+		RequestCondition<?> condition = getActivePatternsCondition();
+		return (condition instanceof PathPatternsRequestCondition pprc ?
+				pprc.isEmptyPathMapping() : ((PatternsRequestCondition) condition).isEmptyPathMapping());
 	}
 
 	/**
@@ -467,19 +475,14 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof RequestMappingInfo otherInfo)) {
-			return false;
-		}
-		return (getActivePatternsCondition().equals(otherInfo.getActivePatternsCondition()) &&
-				this.methodsCondition.equals(otherInfo.methodsCondition) &&
-				this.paramsCondition.equals(otherInfo.paramsCondition) &&
-				this.headersCondition.equals(otherInfo.headersCondition) &&
-				this.consumesCondition.equals(otherInfo.consumesCondition) &&
-				this.producesCondition.equals(otherInfo.producesCondition) &&
-				this.customConditionHolder.equals(otherInfo.customConditionHolder));
+		return (this == other || (other instanceof RequestMappingInfo that &&
+				getActivePatternsCondition().equals(that.getActivePatternsCondition()) &&
+				this.methodsCondition.equals(that.methodsCondition) &&
+				this.paramsCondition.equals(that.paramsCondition) &&
+				this.headersCondition.equals(that.headersCondition) &&
+				this.consumesCondition.equals(that.consumesCondition) &&
+				this.producesCondition.equals(that.producesCondition) &&
+				this.customConditionHolder.equals(that.customConditionHolder)));
 	}
 
 	@Override

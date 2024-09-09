@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,17 @@ public abstract class ConfigurationClassUtils {
 
 	static final String CONFIGURATION_CLASS_LITE = "lite";
 
+	/**
+	 * When set to {@link Boolean#TRUE}, this attribute signals that the bean class
+	 * for the given {@link BeanDefinition} should be considered as a candidate
+	 * configuration class in 'lite' mode by default.
+	 * <p>For example, a class registered directly with an {@code ApplicationContext}
+	 * should always be considered a configuration class candidate.
+	 * @since 6.0.10
+	 */
+	static final String CANDIDATE_ATTRIBUTE =
+			Conventions.getQualifiedAttributeName(ConfigurationClassPostProcessor.class, "candidate");
+
 	static final String CONFIGURATION_CLASS_ATTRIBUTE =
 			Conventions.getQualifiedAttributeName(ConfigurationClassPostProcessor.class, "configurationClass");
 
@@ -95,28 +106,21 @@ public abstract class ConfigurationClassUtils {
 	static boolean checkConfigurationClassCandidate(
 			BeanDefinition beanDef, MetadataReaderFactory metadataReaderFactory) {
 
-		// 获取当前BeanDefinition元数据对象
 		String className = beanDef.getBeanClassName();
 		if (className == null || beanDef.getFactoryMethodName() != null) {
 			return false;
 		}
 
 		AnnotationMetadata metadata;
-		// 1. 通过注解注入的BeanDefinition都是AnnotatedGenericBeanDefinition，实现了AnnotatedBeanDefinition
-		// 2. spring内部的BeanDefinition是RootBeanDefinition，实现了AbstractionBeanDefinition
-		// 此处主要判断是否属于AnnotatedBeanDefinition
-		if (beanDef instanceof AnnotatedBeanDefinition &&
-				className.equals(((AnnotatedBeanDefinition) beanDef).getMetadata().getClassName())) {
+		if (beanDef instanceof AnnotatedBeanDefinition annotatedBd &&
+				className.equals(annotatedBd.getMetadata().getClassName())) {
 			// Can reuse the pre-parsed metadata from the given BeanDefinition...
-			// 从当前bean的定义信息中获取元数据信息
-			metadata = ((AnnotatedBeanDefinition) beanDef).getMetadata();
+			metadata = annotatedBd.getMetadata();
 		}
-		// 判断是否属于spring中默认的BeanDefinition
-		else if (beanDef instanceof AbstractBeanDefinition && ((AbstractBeanDefinition) beanDef).hasBeanClass()) {
+		else if (beanDef instanceof AbstractBeanDefinition abstractBd && abstractBd.hasBeanClass()) {
 			// Check already loaded Class if present...
 			// since we possibly can't even load the class file for this Class.
-			// 获取当前bean的class对象
-			Class<?> beanClass = ((AbstractBeanDefinition) beanDef).getBeanClass();
+			Class<?> beanClass = abstractBd.getBeanClass();
 			if (BeanFactoryPostProcessor.class.isAssignableFrom(beanClass) ||
 					BeanPostProcessor.class.isAssignableFrom(beanClass) ||
 					AopInfrastructureBean.class.isAssignableFrom(beanClass) ||
@@ -139,14 +143,12 @@ public abstract class ConfigurationClassUtils {
 			}
 		}
 
-		// 判断当前注解是否存在@Configuration注解
 		Map<String, Object> config = metadata.getAnnotationAttributes(Configuration.class.getName());
-		// 如果包含@Configuration注解，同时包含proxyBeanMethods属性，则设置configurationClass属性为full
 		if (config != null && !Boolean.FALSE.equals(config.get("proxyBeanMethods"))) {
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_FULL);
 		}
-		// 如果包含@Bean，@Component，@ComponentScan，@Import，@ImportSource注解，设置为lite
-		else if (config != null || isConfigurationCandidate(metadata)) {
+		else if (config != null || Boolean.TRUE.equals(beanDef.getAttribute(CANDIDATE_ATTRIBUTE)) ||
+				isConfigurationCandidate(metadata)) {
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_LITE);
 		}
 		else {
@@ -154,10 +156,8 @@ public abstract class ConfigurationClassUtils {
 		}
 
 		// It's a full or lite configuration candidate... Let's determine the order value, if any.
-		// 获取具体的执行顺序
 		Integer order = getOrder(metadata);
 		if (order != null) {
-			// 设置顺序值到具体的BeanDefinition
 			beanDef.setAttribute(ORDER_ATTRIBUTE, order);
 		}
 

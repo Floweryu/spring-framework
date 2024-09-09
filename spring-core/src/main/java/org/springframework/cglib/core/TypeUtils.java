@@ -15,7 +15,13 @@
  */
 package org.springframework.cglib.core;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.asm.Type;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -63,7 +69,7 @@ public class TypeUtils {
     public static boolean isAbstract(int access) {
         return (Constants.ACC_ABSTRACT & access) != 0;
     }
-    
+
     public static boolean isInterface(int access) {
         return (Constants.ACC_INTERFACE & access) != 0;
     }
@@ -71,15 +77,15 @@ public class TypeUtils {
     public static boolean isPrivate(int access) {
         return (Constants.ACC_PRIVATE & access) != 0;
     }
-    
+
     public static boolean isSynthetic(int access) {
         return (Constants.ACC_SYNTHETIC & access) != 0;
     }
-    
+
     public static boolean isBridge(int access) {
     	return (Constants.ACC_BRIDGE & access) != 0;
     }
-    
+
     // getPackage returns null on JDK 1.2
     public static String getPackageName(Type type) {
         return getPackageName(getClassName(type));
@@ -89,7 +95,7 @@ public class TypeUtils {
         int idx = className.lastIndexOf('.');
         return (idx < 0) ? "" : className.substring(0, idx);
     }
-    
+
     public static String upperFirst(String s) {
         if (s == null || s.length() == 0) {
             return s;
@@ -148,8 +154,8 @@ public class TypeUtils {
 
     public static int getStackSize(Type[] types) {
         int size = 0;
-        for (int i = 0; i < types.length; i++) {
-            size += types[i].getSize();
+        for (Type type : types) {
+            size += type.getSize();
         }
         return size;
     }
@@ -197,8 +203,8 @@ public class TypeUtils {
     public static Signature parseConstructor(Type[] types) {
 		StringBuilder sb = new StringBuilder();
         sb.append("(");
-        for (int i = 0; i < types.length; i++) {
-            sb.append(types[i].getDescriptor());
+        for (Type type : types) {
+            sb.append(type.getDescriptor());
         }
         sb.append(")");
         sb.append("V");
@@ -245,26 +251,17 @@ public class TypeUtils {
     }
 
     public static Type getBoxedType(Type type) {
-        switch (type.getSort()) {
-        case Type.CHAR:
-            return Constants.TYPE_CHARACTER;
-        case Type.BOOLEAN:
-            return Constants.TYPE_BOOLEAN;
-        case Type.DOUBLE:
-            return Constants.TYPE_DOUBLE;
-        case Type.FLOAT:
-            return Constants.TYPE_FLOAT;
-        case Type.LONG:
-            return Constants.TYPE_LONG;
-        case Type.INT:
-            return Constants.TYPE_INTEGER;
-        case Type.SHORT:
-            return Constants.TYPE_SHORT;
-        case Type.BYTE:
-            return Constants.TYPE_BYTE;
-        default:
-            return type;
-        }
+		return switch (type.getSort()) {
+			case Type.CHAR -> Constants.TYPE_CHARACTER;
+			case Type.BOOLEAN -> Constants.TYPE_BOOLEAN;
+			case Type.DOUBLE -> Constants.TYPE_DOUBLE;
+			case Type.FLOAT -> Constants.TYPE_FLOAT;
+			case Type.LONG -> Constants.TYPE_LONG;
+			case Type.INT -> Constants.TYPE_INTEGER;
+			case Type.SHORT -> Constants.TYPE_SHORT;
+			case Type.BYTE -> Constants.TYPE_BYTE;
+			default -> type;
+		};
     }
 
     public static Type getUnboxedType(Type type) {
@@ -301,13 +298,10 @@ public class TypeUtils {
     }
 
     public static boolean isPrimitive(Type type) {
-        switch (type.getSort()) {
-        case Type.ARRAY:
-        case Type.OBJECT:
-            return false;
-        default:
-            return true;
-        }
+		return switch (type.getSort()) {
+			case Type.ARRAY, Type.OBJECT -> false;
+			default -> true;
+		};
     }
 
     public static String emulateClassGetName(Type type) {
@@ -334,17 +328,17 @@ public class TypeUtils {
     }
 
     public static int ICONST(int value) {
-        switch (value) {
-        case -1: return Constants.ICONST_M1;
-        case 0: return Constants.ICONST_0;
-        case 1: return Constants.ICONST_1;
-        case 2: return Constants.ICONST_2;
-        case 3: return Constants.ICONST_3;
-        case 4: return Constants.ICONST_4;
-        case 5: return Constants.ICONST_5;
-        }
-        return -1; // error
-    }
+		return switch (value) {
+			case -1 -> Constants.ICONST_M1;
+			case 0 -> Constants.ICONST_0;
+			case 1 -> Constants.ICONST_1;
+			case 2 -> Constants.ICONST_2;
+			case 3 -> Constants.ICONST_3;
+			case 4 -> Constants.ICONST_4;
+			case 5 -> Constants.ICONST_5;
+			default -> -1; // error
+		};
+	}
 
     public static int LCONST(long value) {
         if (value == 0L) {
@@ -379,43 +373,33 @@ public class TypeUtils {
     }
 
     public static int NEWARRAY(Type type) {
-        switch (type.getSort()) {
-        case Type.BYTE:
-            return Constants.T_BYTE;
-        case Type.CHAR:
-            return Constants.T_CHAR;
-        case Type.DOUBLE:
-            return Constants.T_DOUBLE;
-        case Type.FLOAT:
-            return Constants.T_FLOAT;
-        case Type.INT:
-            return Constants.T_INT;
-        case Type.LONG:
-            return Constants.T_LONG;
-        case Type.SHORT:
-            return Constants.T_SHORT;
-        case Type.BOOLEAN:
-            return Constants.T_BOOLEAN;
-        default:
-            return -1; // error
-        }
+		return switch (type.getSort()) {
+			case Type.BYTE -> Constants.T_BYTE;
+			case Type.CHAR -> Constants.T_CHAR;
+			case Type.DOUBLE -> Constants.T_DOUBLE;
+			case Type.FLOAT -> Constants.T_FLOAT;
+			case Type.INT -> Constants.T_INT;
+			case Type.LONG -> Constants.T_LONG;
+			case Type.SHORT -> Constants.T_SHORT;
+			case Type.BOOLEAN -> Constants.T_BOOLEAN;
+			default -> -1; // error
+		};
     }
 
     public static String escapeType(String s) {
 		StringBuilder sb = new StringBuilder();
         for (int i = 0, len = s.length(); i < len; i++) {
             char c = s.charAt(i);
-            switch (c) {
-            case '$': sb.append("$24"); break;
-            case '.': sb.append("$2E"); break;
-            case '[': sb.append("$5B"); break;
-            case ';': sb.append("$3B"); break;
-            case '(': sb.append("$28"); break;
-            case ')': sb.append("$29"); break;
-            case '/': sb.append("$2F"); break;
-            default:
-                sb.append(c);
-            }
+			switch (c) {
+				case '$' -> sb.append("$24");
+				case '.' -> sb.append("$2E");
+				case '[' -> sb.append("$5B");
+				case ';' -> sb.append("$3B");
+				case '(' -> sb.append("$28");
+				case ')' -> sb.append("$29");
+				case '/' -> sb.append("$2F");
+				default -> sb.append(c);
+			}
         }
         return sb.toString();
     }

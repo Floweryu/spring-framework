@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -219,6 +219,7 @@ public abstract class ResourceUtils {
 					"because it does not reside in the file system: " + resourceUrl);
 		}
 		try {
+			// URI decoding for special characters such as spaces.
 			return new File(toURI(resourceUrl).getSchemeSpecificPart());
 		}
 		catch (URISyntaxException ex) {
@@ -389,20 +390,17 @@ public abstract class ResourceUtils {
 	 * @throws MalformedURLException if the location wasn't a valid URL
 	 * @since 6.0
 	 */
+	@SuppressWarnings("deprecation")  // on JDK 20
 	public static URL toURL(String location) throws MalformedURLException {
-		// Equivalent without java.net.URL constructor - for building on JDK 20+
-		/*
 		try {
+			// Prefer URI construction with toURL conversion (as of 6.1)
 			return toURI(StringUtils.cleanPath(location)).toURL();
 		}
 		catch (URISyntaxException | IllegalArgumentException ex) {
-			MalformedURLException exToThrow = new MalformedURLException(ex.getMessage());
-			exToThrow.initCause(ex);
-			throw exToThrow;
+			// Lenient fallback to deprecated (on JDK 20) URL constructor,
+			// e.g. for decoded location Strings with percent characters.
+			return new URL(location);
 		}
-		*/
-
-		return new URL(location);
 	}
 
 	/**
@@ -418,12 +416,7 @@ public abstract class ResourceUtils {
 		// # can appear in filenames, java.net.URL should not treat it as a fragment
 		relativePath = StringUtils.replace(relativePath, "#", "%23");
 
-		// Equivalent without java.net.URL constructor - for building on JDK 20+
-		/*
 		return toURL(StringUtils.applyRelativePath(root.toString(), relativePath));
-		*/
-
-		return new URL(root, relativePath);
 	}
 
 	/**

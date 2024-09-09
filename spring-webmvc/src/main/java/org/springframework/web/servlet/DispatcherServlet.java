@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,9 +116,9 @@ import org.springframework.web.util.WebUtils;
  * {@link org.springframework.web.servlet.view.DefaultRequestToViewNameTranslator}.
  *
  * <li>The dispatcher's strategy for resolving multipart requests is determined by a
- * {@link org.springframework.web.multipart.MultipartResolver} implementation. An
- * implementation for Servlet 3 is included. The MultipartResolver bean name is
- * "multipartResolver"; default is none.
+ * {@link org.springframework.web.multipart.MultipartResolver} implementation.
+ * An implementation for standard Servlet multipart processing is included.
+ * The MultipartResolver bean name is "multipartResolver"; default is none.
  *
  * <li>Its locale resolution strategy is determined by a {@link LocaleResolver}.
  * Out-of-the-box implementations work via HTTP accept header, cookie, or session.
@@ -145,9 +145,9 @@ import org.springframework.web.util.WebUtils;
  * with mappings, handlers, etc. Only the root application context as loaded by
  * {@link org.springframework.web.context.ContextLoaderListener}, if any, will be shared.
  *
- * <p>As of Spring 3.1, {@code DispatcherServlet} may now be injected with a web
- * application context, rather than creating its own internally. This is useful in Servlet
- * 3.0+ environments, which support programmatic registration of servlet instances.
+ * <p>{@code DispatcherServlet} may be injected with a web application context,
+ * rather than creating its own internally. This is useful in Servlet 3.0+
+ * environments, which support programmatic registration of servlet instances.
  * See the {@link #DispatcherServlet(WebApplicationContext)} javadoc for details.
  *
  * @author Rod Johnson
@@ -284,6 +284,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 */
 	private static final String DEFAULT_STRATEGIES_PREFIX = "org.springframework.web.servlet";
 
+
 	/** Additional logger to use when no mapped handler is found for a request. */
 	protected static final Log pageNotFoundLogger = LogFactory.getLog(PAGE_NOT_FOUND_LOG_CATEGORY);
 
@@ -304,7 +305,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	private boolean detectAllViewResolvers = true;
 
 	/** Throw a NoHandlerFoundException if no Handler was found to process this request? *.*/
-	private boolean throwExceptionIfNoHandlerFound = false;
+	private boolean throwExceptionIfNoHandlerFound = true;
 
 	/** Perform cleanup of request attributes after include request?. */
 	private boolean cleanupAfterInclude = true;
@@ -318,8 +319,8 @@ public class DispatcherServlet extends FrameworkServlet {
 	private LocaleResolver localeResolver;
 
 	/** ThemeResolver used by this servlet. */
-	@Nullable
 	@Deprecated
+	@Nullable
 	private ThemeResolver themeResolver;
 
 	/** List of HandlerMappings used by this servlet. */
@@ -466,7 +467,12 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * <p>Default is "false", meaning the DispatcherServlet sends a NOT_FOUND error through the
 	 * Servlet response.
 	 * @since 4.0
+	 * @deprecated as of 6.1 this property is set to {@code true} by default, and
+	 * should not need to be customized; in effect, {@link DispatcherServlet}
+	 * should always raise {@link NoHandlerFoundException} and allow it to be
+	 * handled through a {@link HandlerExceptionResolver}.
 	 */
+	@Deprecated(since = "6.1", forRemoval = true)
 	public void setThrowExceptionIfNoHandlerFound(boolean throwExceptionIfNoHandlerFound) {
 		this.throwExceptionIfNoHandlerFound = throwExceptionIfNoHandlerFound;
 	}
@@ -808,11 +814,11 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @return the ThemeSource, if any
 	 * @see #getWebApplicationContext()
 	 */
-	@Nullable
 	@Deprecated
+	@Nullable
 	public final org.springframework.ui.context.ThemeSource getThemeSource() {
-		return (getWebApplicationContext() instanceof org.springframework.ui.context.ThemeSource ?
-				(org.springframework.ui.context.ThemeSource) getWebApplicationContext() : null);
+		return (getWebApplicationContext() instanceof org.springframework.ui.context.ThemeSource themeSource ?
+				themeSource : null);
 	}
 
 	/**
@@ -914,12 +920,12 @@ public class DispatcherServlet extends FrameworkServlet {
 	/**
 	 * Create a default strategy.
 	 * <p>The default implementation uses
-	 * {@link org.springframework.beans.factory.config.AutowireCapableBeanFactory#createBean}.
+	 * {@link org.springframework.beans.factory.config.AutowireCapableBeanFactory#createBean(Class)}.
 	 * @param context the current WebApplicationContext
 	 * @param clazz the strategy implementation class to instantiate
 	 * @return the fully configured strategy instance
 	 * @see org.springframework.context.ApplicationContext#getAutowireCapableBeanFactory()
-	 * @see org.springframework.beans.factory.config.AutowireCapableBeanFactory#createBean
+	 * @see org.springframework.beans.factory.config.AutowireCapableBeanFactory#createBean(Class)
 	 */
 	protected Object createDefaultStrategy(ApplicationContext context, Class<?> clazz) {
 		return context.getAutowireCapableBeanFactory().createBean(clazz);
@@ -1142,9 +1148,9 @@ public class DispatcherServlet extends FrameworkServlet {
 		boolean errorView = false;
 
 		if (exception != null) {
-			if (exception instanceof ModelAndViewDefiningException) {
+			if (exception instanceof ModelAndViewDefiningException mavDefiningException) {
 				logger.debug("ModelAndViewDefiningException encountered", exception);
-				mv = ((ModelAndViewDefiningException) exception).getModelAndView();
+				mv = mavDefiningException.getModelAndView();
 			}
 			else {
 				Object handler = (mappedHandler != null ? mappedHandler.getHandler() : null);
@@ -1187,8 +1193,8 @@ public class DispatcherServlet extends FrameworkServlet {
 	@Override
 	protected LocaleContext buildLocaleContext(final HttpServletRequest request) {
 		LocaleResolver lr = this.localeResolver;
-		if (lr instanceof LocaleContextResolver) {
-			return ((LocaleContextResolver) lr).resolveLocaleContext(request);
+		if (lr instanceof LocaleContextResolver localeContextResolver) {
+			return localeContextResolver.resolveLocaleContext(request);
 		}
 		else {
 			return () -> (lr != null ? lr.resolveLocale(request) : request.getLocale());

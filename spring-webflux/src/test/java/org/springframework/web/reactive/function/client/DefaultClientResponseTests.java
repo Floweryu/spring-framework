@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalLong;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -61,20 +60,19 @@ import static org.springframework.web.reactive.function.BodyExtractors.toMono;
  */
 class DefaultClientResponseTests {
 
-	private ClientHttpResponse mockResponse;
+	private ClientHttpResponse mockResponse = mock();
 
 	private final HttpHeaders httpHeaders = new HttpHeaders();
 
-	private ExchangeStrategies mockExchangeStrategies;
+	private ExchangeStrategies mockExchangeStrategies = mock();
 
 	private DefaultClientResponse defaultClientResponse;
 
 
 	@BeforeEach
-	void createMocks() {
-		mockResponse = mock(ClientHttpResponse.class);
+	void configureMocks() {
 		given(mockResponse.getHeaders()).willReturn(this.httpHeaders);
-		mockExchangeStrategies = mock(ExchangeStrategies.class);
+
 		defaultClientResponse = new DefaultClientResponse(mockResponse, mockExchangeStrategies, "", "", () -> null);
 	}
 
@@ -102,7 +100,7 @@ class DefaultClientResponseTests {
 
 		ClientResponse.Headers headers = defaultClientResponse.headers();
 		assertThat(headers.contentLength()).isEqualTo(OptionalLong.of(contentLength));
-		assertThat(headers.contentType()).isEqualTo(Optional.of(contentType));
+		assertThat(headers.contentType()).contains(contentType);
 		assertThat(headers.asHttpHeaders()).isEqualTo(httpHeaders);
 	}
 

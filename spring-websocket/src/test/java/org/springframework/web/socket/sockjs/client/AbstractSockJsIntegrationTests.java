@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -266,7 +266,7 @@ abstract class AbstractSockJsIntegrationTests {
 		}
 		TestClientHandler handler = new TestClientHandler();
 		initSockJsClient(transport);
-		URI url = new URI(this.baseUrl + "/echo");
+		URI url = URI.create(this.baseUrl + "/echo");
 		WebSocketSession session = this.sockJsClient.doHandshake(handler, headers, url).get();
 		for (TextMessage message : messages) {
 			session.sendMessage(message);
@@ -275,7 +275,7 @@ abstract class AbstractSockJsIntegrationTests {
 		for (TextMessage message : messages) {
 			assertThat(handler.receivedMessages.remove(message)).as("Message not received: " + message).isTrue();
 		}
-		assertThat(handler.receivedMessages.size()).as("Remaining messages: " + handler.receivedMessages).isEqualTo(0);
+		assertThat(handler.receivedMessages).as("Remaining messages: " + handler.receivedMessages).isEmpty();
 		session.close();
 	}
 
@@ -285,7 +285,7 @@ abstract class AbstractSockJsIntegrationTests {
 
 		TestClientHandler clientHandler = new TestClientHandler();
 		initSockJsClient(transport);
-		this.sockJsClient.doHandshake(clientHandler, headers, new URI(this.baseUrl + "/test")).get();
+		this.sockJsClient.doHandshake(clientHandler, headers, URI.create(this.baseUrl + "/test")).get();
 		TestServerHandler serverHandler = this.wac.getBean(TestServerHandler.class);
 
 		assertThat(clientHandler.session).as("afterConnectionEstablished should have been called").isNotNull();

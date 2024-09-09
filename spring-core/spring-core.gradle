@@ -1,15 +1,25 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.springframework.build.shadow.ShadowSource
 
+plugins {
+	id 'me.champeau.mrjar'
+}
+
 description = "Spring Core"
 
 apply plugin: "kotlin"
 apply plugin: "kotlinx-serialization"
 
+multiRelease {
+	targetVersions 17, 21
+}
+
 def javapoetVersion = "1.13.0"
-def objenesisVersion = "3.2"
+def objenesisVersion = "3.3"
 
 configurations {
+	java21Api.extendsFrom(api)
+	java21Implementation.extendsFrom(implementation)
 	javapoet
 	objenesis
 	graalvm
@@ -85,7 +95,8 @@ dependencies {
 	testImplementation("org.skyscreamer:jsonassert")
 	testImplementation("com.squareup.okhttp3:mockwebserver")
 	testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
-	testImplementation("com.fasterxml.jackson.core:jackson-annotations")
+	testImplementation("com.fasterxml.jackson.core:jackson-databind")
+	testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 	testFixturesImplementation("com.google.code.findbugs:jsr305")
 	testFixturesImplementation("org.junit.platform:junit-platform-launcher")
 	testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
@@ -96,17 +107,15 @@ dependencies {
 }
 
 jar {
-	reproducibleFileOrder = true
-	preserveFileTimestamps = false  // maybe not necessary here, but good for reproducibility
 	manifest.attributes["Dependencies"] = "jdk.unsupported"  // for WildFly (-> Objenesis 3.2)
 
 	dependsOn javapoetRepackJar
-	from(zipTree(javapoetRepackJar.archivePath)) {
+	from(zipTree(javapoetRepackJar.archiveFile)) {
 		include "org/springframework/javapoet/**"
 	}
 
 	dependsOn objenesisRepackJar
-	from(zipTree(objenesisRepackJar.archivePath)) {
+	from(zipTree(objenesisRepackJar.archiveFile)) {
 		include "org/springframework/objenesis/**"
 	}
 }
@@ -138,7 +147,7 @@ eclipse {
 				def pattern = ~/\/spring-\w+-repack-/
 				entries.forEach {
 					if (pattern.matcher(it.path).find()) {
-						def sourcesJar = it.path.replace('.jar', '-sources.jar');
+						def sourcesJar = it.path.replace('.jar', '-sources.jar')
 						it.sourcePath = fileReference(file(sourcesJar))
 					}
 				}

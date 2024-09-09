@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,9 @@ import org.springframework.messaging.support.AbstractSubscribableChannel;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.ExecutorSubscribableChannel;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.messaging.tcp.ReconnectStrategy;
+import org.springframework.messaging.tcp.TcpConnectionHandler;
+import org.springframework.messaging.tcp.TcpOperations;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.AntPathMatcher;
@@ -314,7 +318,7 @@ public class MessageBrokerConfigurationTests {
 
 	@Test
 	public void configureMessageConvertersCustom() {
-		final MessageConverter testConverter = mock(MessageConverter.class);
+		final MessageConverter testConverter = mock();
 		AbstractMessageBrokerConfiguration config = new BaseTestMessageBrokerConfig() {
 			@Override
 			protected boolean configureMessageConverters(List<MessageConverter> messageConverters) {
@@ -331,7 +335,7 @@ public class MessageBrokerConfigurationTests {
 
 	@Test
 	public void configureMessageConvertersCustomAndDefault() {
-		final MessageConverter testConverter = mock(MessageConverter.class);
+		final MessageConverter testConverter = mock();
 
 		AbstractMessageBrokerConfiguration config = new BaseTestMessageBrokerConfig() {
 			@Override
@@ -378,7 +382,7 @@ public class MessageBrokerConfigurationTests {
 
 	@Test
 	public void simpValidatorCustom() {
-		final Validator validator = mock(Validator.class);
+		final Validator validator = mock();
 		AbstractMessageBrokerConfiguration config = new BaseTestMessageBrokerConfig() {
 			@Override
 			public Validator getValidator() {
@@ -442,7 +446,7 @@ public class MessageBrokerConfigurationTests {
 		ApplicationContext context = loadConfig(CustomConfig.class);
 
 		SimpUserRegistry registry = context.getBean(SimpUserRegistry.class);
-		assertThat(registry instanceof TestUserRegistry).isTrue();
+		assertThat(registry).isInstanceOf(TestUserRegistry.class);
 		assertThat(((TestUserRegistry) registry).getOrder()).isEqualTo(99);
 	}
 
@@ -622,7 +626,9 @@ public class MessageBrokerConfigurationTests {
 
 		@Override
 		public void configureMessageBroker(MessageBrokerRegistry registry) {
-			registry.enableStompBrokerRelay("/topic", "/queue").setAutoStartup(true)
+			registry.enableStompBrokerRelay("/topic", "/queue")
+					.setAutoStartup(true)
+					.setTcpClient(new NoOpTcpClient())
 					.setUserDestinationBroadcast("/topic/unresolved-user-destination")
 					.setUserRegistryBroadcast("/topic/simp-user-registry");
 		}
@@ -654,12 +660,12 @@ public class MessageBrokerConfigurationTests {
 
 		@Override
 		protected void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
-			argumentResolvers.add(mock(HandlerMethodArgumentResolver.class));
+			argumentResolvers.add(mock());
 		}
 
 		@Override
 		protected void addReturnValueHandlers(List<HandlerMethodReturnValueHandler> returnValueHandlers) {
-			returnValueHandlers.add(mock(HandlerMethodReturnValueHandler.class));
+			returnValueHandlers.add(mock());
 		}
 
 		@Override
@@ -785,6 +791,26 @@ public class MessageBrokerConfigurationTests {
 
 	@SuppressWarnings("serial")
 	private static class CustomThreadPoolTaskExecutor extends ThreadPoolTaskExecutor {
+	}
+
+
+	private static class NoOpTcpClient implements TcpOperations<byte[]> {
+
+		@Override
+		public CompletableFuture<Void> connectAsync(TcpConnectionHandler<byte[]> handler) {
+			return CompletableFuture.completedFuture(null);
+		}
+
+		@Override
+		public CompletableFuture<Void> connectAsync(TcpConnectionHandler<byte[]> handler, ReconnectStrategy strategy) {
+			return CompletableFuture.completedFuture(null);
+		}
+
+		@Override
+		public CompletableFuture<Void> shutdownAsync() {
+			return CompletableFuture.completedFuture(null);
+		}
+
 	}
 
 }

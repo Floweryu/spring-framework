@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,25 @@ package org.springframework.util;
 
 import java.io.Closeable;
 import java.io.Externalizable;
+import java.io.File;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.time.ZoneId;
+import java.time.temporal.Temporal;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Currency;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,16 +44,21 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.TimeZone;
+import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.springframework.lang.Nullable;
 
 /**
  * Miscellaneous {@code java.lang.Class} utility methods.
- * Mainly for internal use within the framework.
+ *
+ * <p>Mainly for internal use within the framework.
  *
  * @author Juergen Hoeller
  * @author Keith Donald
@@ -528,12 +543,52 @@ public abstract class ClassUtils {
 	}
 
 	/**
+	 * Delegate for {@link org.springframework.beans.BeanUtils#isSimpleValueType}.
+	 * Also used by {@link ObjectUtils#nullSafeConciseToString}.
+	 * <p>Check if the given type represents a common "simple" value type:
+	 * a primitive or primitive wrapper, an {@link Enum}, a {@link String}
+	 * or other {@link CharSequence}, a {@link Number}, a {@link Date},
+	 * a {@link Temporal}, a {@link ZoneId} a {@link TimeZone}, a {@link File},
+	 * a {@link Path}, a {@link URI}, a {@link URL}, an {@link InetAddress},
+	 * a {@link Charset}, a {@link Currency}, a {@link Locale}, a {@link UUID},
+	 * a {@link Pattern}, or a {@link Class}.
+	 * <p>{@code Void} and {@code void} are not considered simple value types.
+	 * @param type the type to check
+	 * @return whether the given type represents a "simple" value type,
+	 * suggesting value-based data binding and {@code toString} output
+	 * @since 6.1
+	 */
+	public static boolean isSimpleValueType(Class<?> type) {
+		return (Void.class != type && void.class != type &&
+				(isPrimitiveOrWrapper(type) ||
+				Enum.class.isAssignableFrom(type) ||
+				CharSequence.class.isAssignableFrom(type) ||
+				Number.class.isAssignableFrom(type) ||
+				Date.class.isAssignableFrom(type) ||
+				Temporal.class.isAssignableFrom(type) ||
+				ZoneId.class.isAssignableFrom(type) ||
+				TimeZone.class.isAssignableFrom(type) ||
+				File.class.isAssignableFrom(type) ||
+				Path.class.isAssignableFrom(type) ||
+				Charset.class.isAssignableFrom(type) ||
+				Currency.class.isAssignableFrom(type) ||
+				InetAddress.class.isAssignableFrom(type) ||
+				URI.class == type ||
+				URL.class == type ||
+				UUID.class == type ||
+				Locale.class == type ||
+				Pattern.class == type ||
+				Class.class == type));
+	}
+
+	/**
 	 * Check if the right-hand side type may be assigned to the left-hand side
 	 * type, assuming setting by reflection. Considers primitive wrapper
 	 * classes as assignable to the corresponding primitive types.
-	 * @param lhsType the target type
-	 * @param rhsType the value type that should be assigned to the target type
-	 * @return if the target type is assignable from the value type
+	 * @param lhsType the target type (left-hand side (LHS) type)
+	 * @param rhsType the value type (right-hand side (RHS) type) that should
+	 * be assigned to the target type
+	 * @return {@code true} if {@code rhsType} is assignable to {@code lhsType}
 	 * @see TypeUtils#isAssignable(java.lang.reflect.Type, java.lang.reflect.Type)
 	 */
 	public static boolean isAssignable(Class<?> lhsType, Class<?> rhsType) {
@@ -870,9 +925,9 @@ public abstract class ClassUtils {
 	/**
 	 * Check whether the given object is a CGLIB proxy.
 	 * @param object the object to check
-	 * @see #isCglibProxyClass(Class)
 	 * @see org.springframework.aop.support.AopUtils#isCglibProxy(Object)
 	 * @deprecated as of 5.2, in favor of custom (possibly narrower) checks
+	 * such as for a Spring AOP proxy
 	 */
 	@Deprecated
 	public static boolean isCglibProxy(Object object) {
@@ -882,8 +937,9 @@ public abstract class ClassUtils {
 	/**
 	 * Check whether the specified class is a CGLIB-generated class.
 	 * @param clazz the class to check
-	 * @see #isCglibProxyClassName(String)
+	 * @see #getUserClass(Class)
 	 * @deprecated as of 5.2, in favor of custom (possibly narrower) checks
+	 * or simply a check for containing {@link #CGLIB_CLASS_SEPARATOR}
 	 */
 	@Deprecated
 	public static boolean isCglibProxyClass(@Nullable Class<?> clazz) {
@@ -893,7 +949,9 @@ public abstract class ClassUtils {
 	/**
 	 * Check whether the specified class name is a CGLIB-generated class.
 	 * @param className the class name to check
+	 * @see #CGLIB_CLASS_SEPARATOR
 	 * @deprecated as of 5.2, in favor of custom (possibly narrower) checks
+	 * or simply a check for containing {@link #CGLIB_CLASS_SEPARATOR}
 	 */
 	@Deprecated
 	public static boolean isCglibProxyClassName(@Nullable String className) {
@@ -917,6 +975,7 @@ public abstract class ClassUtils {
 	 * class, but the original class in case of a CGLIB-generated subclass.
 	 * @param clazz the class to check
 	 * @return the user-defined class
+	 * @see #CGLIB_CLASS_SEPARATOR
 	 */
 	public static Class<?> getUserClass(Class<?> clazz) {
 		if (clazz.getName().contains(CGLIB_CLASS_SEPARATOR)) {
@@ -1265,17 +1324,17 @@ public abstract class ClassUtils {
 	/**
 	 * Given a method, which may come from an interface, and a target class used
 	 * in the current reflective invocation, find the corresponding target method
-	 * if there is one. E.g. the method may be {@code IFoo.bar()} and the
-	 * target class may be {@code DefaultFoo}. In this case, the method may be
+	 * if there is one &mdash; for example, the method may be {@code IFoo.bar()},
+	 * and the target class may be {@code DefaultFoo}. In this case, the method may be
 	 * {@code DefaultFoo.bar()}. This enables attributes on that method to be found.
 	 * <p><b>NOTE:</b> In contrast to {@link org.springframework.aop.support.AopUtils#getMostSpecificMethod},
 	 * this method does <i>not</i> resolve bridge methods automatically.
 	 * Call {@link org.springframework.core.BridgeMethodResolver#findBridgedMethod}
-	 * if bridge method resolution is desirable (e.g. for obtaining metadata from
-	 * the original method definition).
-	 * <p><b>NOTE:</b> Since Spring 3.1.1, if Java security settings disallow reflective
-	 * access (e.g. calls to {@code Class#getDeclaredMethods} etc, this implementation
-	 * will fall back to returning the originally provided method.
+	 * if bridge method resolution is desirable &mdash; for example, to obtain
+	 * metadata from the original method definition.
+	 * <p><b>NOTE:</b> If Java security settings disallow reflective access &mdash;
+	 * for example, calls to {@code Class#getDeclaredMethods}, etc. &mdash; this
+	 * implementation will fall back to returning the originally provided method.
 	 * @param method the method to be invoked, which may come from an interface
 	 * @param targetClass the target class for the current invocation
 	 * (may be {@code null} or may not even implement the method)

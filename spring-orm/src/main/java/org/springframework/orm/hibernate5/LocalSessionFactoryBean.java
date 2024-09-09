@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,6 +65,10 @@ import org.springframework.lang.Nullable;
  * integration will be registered out of the box. In combination with
  * {@link HibernateTransactionManager}, this naturally allows for mixing JPA access code
  * with native Hibernate access code within the same transaction.
+ *
+ * <p><b>NOTE: Hibernate ORM 6.x is officially only supported as a JPA provider.
+ * Please use {@link org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean}
+ * with {@link org.springframework.orm.jpa.JpaTransactionManager} there instead.</b>
  *
  * @author Juergen Hoeller
  * @since 4.2
@@ -475,8 +479,8 @@ public class LocalSessionFactoryBean extends HibernateExceptionTranslator
 	 */
 	@Override
 	public void setBeanFactory(BeanFactory beanFactory) {
-		if (beanFactory instanceof ConfigurableListableBeanFactory) {
-			this.beanFactory = (ConfigurableListableBeanFactory) beanFactory;
+		if (beanFactory instanceof ConfigurableListableBeanFactory clbf) {
+			this.beanFactory = clbf;
 		}
 	}
 

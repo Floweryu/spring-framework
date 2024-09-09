@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,21 @@
 
 package org.springframework.web.bind;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.function.Function;
+import java.util.Map;
 
 import org.springframework.context.MessageSource;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
-import org.springframework.util.StringUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.ErrorResponse;
+import org.springframework.web.util.BindErrorUtils;
 
 /**
  * Exception to be thrown when validation on an argument annotated with {@code @Valid} fails.
@@ -39,6 +38,7 @@ import org.springframework.web.ErrorResponse;
  *
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
+ * @author Sebastien Deleuze
  * @since 3.1
  */
 @SuppressWarnings("serial")
@@ -61,6 +61,13 @@ public class MethodArgumentNotValidException extends BindException implements Er
 	}
 
 
+	/**
+	 * Return the method parameter that failed validation.
+	 */
+	public final MethodParameter getParameter() {
+		return this.parameter;
+	}
+
 	@Override
 	public HttpStatusCode getStatusCode() {
 		return HttpStatus.BAD_REQUEST;
@@ -71,11 +78,57 @@ public class MethodArgumentNotValidException extends BindException implements Er
 		return this.body;
 	}
 
+	@Override
+	public Object[] getDetailMessageArguments(MessageSource source, Locale locale) {
+		return new Object[] {
+				BindErrorUtils.resolveAndJoin(getGlobalErrors(), source, locale),
+				BindErrorUtils.resolveAndJoin(getFieldErrors(), source, locale)};
+	}
+
+	@Override
+	public Object[] getDetailMessageArguments() {
+		return new Object[] {
+				BindErrorUtils.resolveAndJoin(getGlobalErrors()),
+				BindErrorUtils.resolveAndJoin(getFieldErrors())};
+	}
+
 	/**
-	 * Return the method parameter that failed validation.
+	 * Convert each given {@link ObjectError} to a String.
+	 * @since 6.0
+	 * @deprecated in favor of using {@link BindErrorUtils} and
+	 * {@link #getAllErrors()}, to be removed in 6.2
 	 */
-	public final MethodParameter getParameter() {
-		return this.parameter;
+	@Deprecated(since = "6.1", forRemoval = true)
+	public static List<String> errorsToStringList(List<? extends ObjectError> errors) {
+		return BindErrorUtils.resolve(errors).values().stream().toList();
+	}
+
+	/**
+	 * Convert each given {@link ObjectError} to a String, and use a
+	 * {@link MessageSource} to resolve each error.
+	 * @since 6.0
+	 * @deprecated in favor of {@link BindErrorUtils}, to be removed in 6.2
+	 */
+	@Deprecated(since = "6.1", forRemoval = true)
+	public static List<String> errorsToStringList(
+			List<? extends ObjectError> errors, @Nullable MessageSource messageSource, Locale locale) {
+
+		return (messageSource != null ?
+				BindErrorUtils.resolve(errors, messageSource, locale).values().stream().toList() :
+				BindErrorUtils.resolve(errors).values().stream().toList());
+	}
+
+	/**
+	 * Resolve global and field errors to messages with the given
+	 * {@link MessageSource} and {@link Locale}.
+	 * @return a Map with errors as keys and resolved messages as values
+	 * @since 6.0.3
+	 * @deprecated in favor of using {@link BindErrorUtils} and
+	 * {@link #getAllErrors()}, to be removed in 6.2
+	 */
+	@Deprecated(since = "6.1", forRemoval = true)
+	public Map<ObjectError, String> resolveErrorMessages(MessageSource messageSource, Locale locale) {
+		return BindErrorUtils.resolve(getAllErrors(), messageSource, locale);
 	}
 
 	@Override
@@ -92,60 +145,6 @@ public class MethodArgumentNotValidException extends BindException implements Er
 			sb.append('[').append(error).append("] ");
 		}
 		return sb.toString();
-	}
-
-	@Override
-	public Object[] getDetailMessageArguments() {
-		return new Object[] {
-				errorsToStringList(getBindingResult().getGlobalErrors()),
-				errorsToStringList(getBindingResult().getFieldErrors())
-		};
-	}
-
-	@Override
-	public Object[] getDetailMessageArguments(MessageSource messageSource, Locale locale) {
-		return new Object[] {
-				errorsToStringList(getBindingResult().getGlobalErrors(), messageSource, locale),
-				errorsToStringList(getBindingResult().getFieldErrors(), messageSource, locale)
-		};
-	}
-
-	/**
-	 * Convert each given {@link ObjectError} to a String in single quotes, taking
-	 * either the error's default message, or its error code.
-	 * @since 6.0
-	 */
-	public static List<String> errorsToStringList(List<? extends ObjectError> errors) {
-		return errorsToStringList(errors, error ->
-				error.getDefaultMessage() != null ? error.getDefaultMessage() : error.getCode());
-	}
-
-	/**
-	 * Variant of {@link #errorsToStringList(List)} that uses a
-	 * {@link MessageSource} to resolve the message code of the error, or fall
-	 * back on the error's default message.
-	 * @since 6.0
-	 */
-	@SuppressWarnings("ConstantConditions")
-	public static List<String> errorsToStringList(
-			List<? extends ObjectError> errors, MessageSource source, Locale locale) {
-
-		return errorsToStringList(errors, error -> source.getMessage(
-				error.getCode(), error.getArguments(), error.getDefaultMessage(), locale));
-	}
-
-	private static List<String> errorsToStringList(
-			List<? extends ObjectError> errors, Function<ObjectError, String> formatter) {
-
-		List<String> result = new ArrayList<>(errors.size());
-		for (ObjectError error : errors) {
-			String value = formatter.apply(error);
-			if (StringUtils.hasText(value)) {
-				result.add(error instanceof FieldError fieldError ?
-						fieldError.getField() + ": '" + value + "'" : "'" + value + "'");
-			}
-		}
-		return result;
 	}
 
 }

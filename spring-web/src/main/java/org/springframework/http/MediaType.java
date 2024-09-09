@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,15 +98,33 @@ public class MediaType extends MimeType implements Serializable {
 	/**
 	 * Public constant media type for {@code application/graphql+json}.
 	 * @since 5.3.19
-	 * @see <a href="https://github.com/graphql/graphql-over-http">GraphQL over HTTP spec</a>
+	 * @see <a href="https://github.com/graphql/graphql-over-http/pull/215">GraphQL over HTTP spec change</a>
+	 * @deprecated as of 6.0.3, in favor of {@link MediaType#APPLICATION_GRAPHQL_RESPONSE}
 	 */
+	@Deprecated(since = "6.0.3", forRemoval = true)
 	public static final MediaType APPLICATION_GRAPHQL;
 
 	/**
 	 * A String equivalent of {@link MediaType#APPLICATION_GRAPHQL}.
 	 * @since 5.3.19
+	 * @deprecated as of 6.0.3, in favor of {@link MediaType#APPLICATION_GRAPHQL_RESPONSE_VALUE}
 	 */
+	@Deprecated(since = "6.0.3", forRemoval = true)
 	public static final String APPLICATION_GRAPHQL_VALUE = "application/graphql+json";
+
+	/**
+	 * Public constant media type for {@code application/graphql-response+json}.
+	 * @since 6.0.3
+	 * @see <a href="https://github.com/graphql/graphql-over-http">GraphQL over HTTP spec</a>
+	 */
+	public static final MediaType APPLICATION_GRAPHQL_RESPONSE;
+
+	/**
+	 * A String equivalent of {@link MediaType#APPLICATION_GRAPHQL_RESPONSE}.
+	 * @since 6.0.3
+	 */
+	public static final String APPLICATION_GRAPHQL_RESPONSE_VALUE = "application/graphql-response+json";
+
 
 	/**
 	 * Public constant media type for {@code application/json}.
@@ -417,11 +435,12 @@ public class MediaType extends MimeType implements Serializable {
 
 	static {
 		// Not using "valueOf' to avoid static init cost
-		ALL = new MediaType("*", "*");
+		ALL = new MediaType(MimeType.WILDCARD_TYPE, MimeType.WILDCARD_TYPE);
 		APPLICATION_ATOM_XML = new MediaType("application", "atom+xml");
 		APPLICATION_CBOR = new MediaType("application", "cbor");
 		APPLICATION_FORM_URLENCODED = new MediaType("application", "x-www-form-urlencoded");
 		APPLICATION_GRAPHQL = new MediaType("application", "graphql+json");
+		APPLICATION_GRAPHQL_RESPONSE = new MediaType("application", "graphql-response+json");
 		APPLICATION_JSON = new MediaType("application", "json");
 		APPLICATION_JSON_UTF8 = new MediaType("application", "json", StandardCharsets.UTF_8);
 		APPLICATION_NDJSON = new MediaType("application", "x-ndjson");

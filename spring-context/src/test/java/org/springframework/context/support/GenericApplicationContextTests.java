@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,10 +76,12 @@ class GenericApplicationContextTests {
 
 	private final GenericApplicationContext context = new GenericApplicationContext();
 
+
 	@AfterEach
 	void closeContext() {
 		context.close();
 	}
+
 
 	@Test
 	void getBeanForClass() {
@@ -91,7 +93,7 @@ class GenericApplicationContextTests {
 		assertThat(context.getBean(CharSequence.class)).isSameAs(context.getBean("testBean"));
 
 		assertThatExceptionOfType(NoUniqueBeanDefinitionException.class)
-			.isThrownBy(() -> context.getBean(Object.class));
+				.isThrownBy(() -> context.getBean(Object.class));
 	}
 
 	@Test
@@ -310,7 +312,7 @@ class GenericApplicationContextTests {
 
 	@Test
 	void refreshForAotRegistersEnvironment() {
-		ConfigurableEnvironment environment = mock(ConfigurableEnvironment.class);
+		ConfigurableEnvironment environment = mock();
 		GenericApplicationContext context = new GenericApplicationContext();
 		context.setEnvironment(environment);
 		context.refreshForAotProcessing(new RuntimeHints());
@@ -363,7 +365,7 @@ class GenericApplicationContextTests {
 	@Test
 	void refreshForAotInvokesBeanFactoryPostProcessors() {
 		GenericApplicationContext context = new GenericApplicationContext();
-		BeanFactoryPostProcessor bfpp = mock(BeanFactoryPostProcessor.class);
+		BeanFactoryPostProcessor bfpp = mock();
 		context.addBeanFactoryPostProcessor(bfpp);
 		context.refreshForAotProcessing(new RuntimeHints());
 		verify(bfpp).postProcessBeanFactory(context.getBeanFactory());
@@ -509,8 +511,9 @@ class GenericApplicationContextTests {
 		context.close();
 	}
 
+
 	private MergedBeanDefinitionPostProcessor registerMockMergedBeanDefinitionPostProcessor(GenericApplicationContext context) {
-		MergedBeanDefinitionPostProcessor bpp = mock(MergedBeanDefinitionPostProcessor.class);
+		MergedBeanDefinitionPostProcessor bpp = mock();
 		context.registerBeanDefinition("bpp", BeanDefinitionBuilder.rootBeanDefinition(
 						MergedBeanDefinitionPostProcessor.class, () -> bpp)
 				.setRole(BeanDefinition.ROLE_INFRASTRUCTURE).getBeanDefinition());
@@ -563,8 +566,8 @@ class GenericApplicationContextTests {
 		public void setCounter(Integer counter) {
 			this.counter = counter;
 		}
-
 	}
+
 
 	static class TestAotFactoryBean<T> extends AbstractFactoryBean<T> {
 
@@ -583,6 +586,7 @@ class GenericApplicationContextTests {
 			return (T) new Object();
 		}
 	}
+
 
 	static class PingPongProtocolResolver implements ProtocolResolver {
 

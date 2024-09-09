@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.Map;
 
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
 
 /**
  * Representation for an RFC 7807 problem detail. Includes spec-defined
@@ -37,11 +38,12 @@ import org.springframework.util.Assert;
  * additional properties. Subclasses can use the protected copy constructor to
  * re-create an existing {@code ProblemDetail} instance as the subclass, e.g.
  * from an {@code @ControllerAdvice} such as
- * {@link org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler}.
+ * {@link org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler} or
+ * {@link org.springframework.web.reactive.result.method.annotation.ResponseEntityExceptionHandler}.
  *
  * @author Rossen Stoyanchev
+ * @author Juergen Hoeller
  * @since 6.0
- *
  * @see <a href="https://datatracker.ietf.org/doc/html/rfc7807">RFC 7807</a>
  * @see org.springframework.web.ErrorResponse
  * @see org.springframework.web.ErrorResponseException
@@ -109,6 +111,13 @@ public class ProblemDetail {
 	}
 
 	/**
+	 * Return the configured {@link #setType(URI) problem type}.
+	 */
+	public URI getType() {
+		return this.type;
+	}
+
+	/**
 	 * Setter for the {@link #getTitle() problem title}.
 	 * <p>By default, if not explicitly set and the status is well-known, this
 	 * is sourced from the {@link HttpStatus#getReasonPhrase()}.
@@ -116,6 +125,20 @@ public class ProblemDetail {
 	 */
 	public void setTitle(@Nullable String title) {
 		this.title = title;
+	}
+
+	/**
+	 * Return the configured {@link #setTitle(String) problem title}.
+	 */
+	@Nullable
+	public String getTitle() {
+		if (this.title == null) {
+			HttpStatus httpStatus = HttpStatus.resolve(this.status);
+			if (httpStatus != null) {
+				return httpStatus.getReasonPhrase();
+			}
+		}
+		return this.title;
 	}
 
 	/**
@@ -135,12 +158,28 @@ public class ProblemDetail {
 	}
 
 	/**
+	 * Return the status associated with the problem, provided either to the
+	 * constructor or configured via {@link #setStatus(int)}.
+	 */
+	public int getStatus() {
+		return this.status;
+	}
+
+	/**
 	 * Setter for the {@link #getDetail() problem detail}.
 	 * <p>By default, this is not set.
 	 * @param detail the problem detail
 	 */
 	public void setDetail(@Nullable String detail) {
 		this.detail = detail;
+	}
+
+	/**
+	 * Return the configured {@link #setDetail(String) problem detail}.
+	 */
+	@Nullable
+	public String getDetail() {
+		return this.detail;
 	}
 
 	/**
@@ -154,64 +193,27 @@ public class ProblemDetail {
 	}
 
 	/**
+	 * Return the configured {@link #setInstance(URI) problem instance}.
+	 */
+	@Nullable
+	public URI getInstance() {
+		return this.instance;
+	}
+
+	/**
 	 * Set a "dynamic" property to be added to a generic {@link #getProperties()
 	 * properties map}.
 	 * <p>When Jackson JSON is present on the classpath, any properties set here
 	 * are rendered as top level key-value pairs in the output JSON. Otherwise,
 	 * they are rendered as a {@code "properties"} sub-map.
 	 * @param name the property name
-	 * @param value the property value
+	 * @param value the property value, possibly {@code null} if the intent is
+	 * to include a property with its value set to "null"
 	 * @see org.springframework.http.converter.json.ProblemDetailJacksonMixin
 	 */
-	public void setProperty(String name, Object value) {
+	public void setProperty(String name, @Nullable Object value) {
 		this.properties = (this.properties != null ? this.properties : new LinkedHashMap<>());
 		this.properties.put(name, value);
-	}
-
-
-	/**
-	 * Return the configured {@link #setType(URI) problem type}.
-	 */
-	public URI getType() {
-		return this.type;
-	}
-
-	/**
-	 * Return the configured {@link #setTitle(String) problem title}.
-	 */
-	@Nullable
-	public String getTitle() {
-		if (this.title == null) {
-			HttpStatus httpStatus = HttpStatus.resolve(this.status);
-			if (httpStatus != null) {
-				return httpStatus.getReasonPhrase();
-			}
-		}
-		return this.title;
-	}
-
-	/**
-	 * Return the status associated with the problem, provided either to the
-	 * constructor or configured via {@link #setStatus(int)}.
-	 */
-	public int getStatus() {
-		return this.status;
-	}
-
-	/**
-	 * Return the configured {@link #setDetail(String) problem detail}.
-	 */
-	@Nullable
-	public String getDetail() {
-		return this.detail;
-	}
-
-	/**
-	 * Return the configured {@link #setInstance(URI) problem instance}.
-	 */
-	@Nullable
-	public URI getInstance() {
-		return this.instance;
 	}
 
 	/**
@@ -230,6 +232,28 @@ public class ProblemDetail {
 
 
 	@Override
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof ProblemDetail that &&
+				getType().equals(that.getType()) &&
+				ObjectUtils.nullSafeEquals(getTitle(), that.getTitle()) &&
+				this.status == that.status &&
+				ObjectUtils.nullSafeEquals(this.detail, that.detail) &&
+				ObjectUtils.nullSafeEquals(this.instance, that.instance) &&
+				ObjectUtils.nullSafeEquals(this.properties, that.properties)));
+	}
+
+	@Override
+	public int hashCode() {
+		int result = this.type.hashCode();
+		result = 31 * result + ObjectUtils.nullSafeHashCode(getTitle());
+		result = 31 * result + this.status;
+		result = 31 * result + ObjectUtils.nullSafeHashCode(this.detail);
+		result = 31 * result + ObjectUtils.nullSafeHashCode(this.instance);
+		result = 31 * result + ObjectUtils.nullSafeHashCode(this.properties);
+		return result;
+	}
+
+	@Override
 	public String toString() {
 		return getClass().getSimpleName() + "[" + initToStringContent() + "]";
 	}
@@ -239,7 +263,7 @@ public class ProblemDetail {
 	 * Subclasses can override this to append additional fields.
 	 */
 	protected String initToStringContent() {
-		return "type='" + this.type + "'" +
+		return "type='" + getType() + "'" +
 				", title='" + getTitle() + "'" +
 				", status=" + getStatus() +
 				", detail='" + getDetail() + "'" +

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package org.springframework.web.reactive.function.client.support;
 
-
+import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -26,14 +26,15 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.Assert;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.service.invoker.HttpClientAdapter;
+import org.springframework.web.service.invoker.AbstractReactorHttpExchangeAdapter;
 import org.springframework.web.service.invoker.HttpRequestValues;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
-
+import org.springframework.web.service.invoker.ReactiveHttpRequestValues;
+import org.springframework.web.service.invoker.ReactorHttpExchangeAdapter;
 
 /**
- * {@link HttpClientAdapter} that enables an {@link HttpServiceProxyFactory} to
- * use {@link WebClient} for request execution.
+ * {@link ReactorHttpExchangeAdapter} that enables an {@link HttpServiceProxyFactory}
+ * to use {@link WebClient} for request execution.
  *
  * <p>Use static factory methods in this class to create an
  * {@code HttpServiceProxyFactory} configured with a given {@code WebClient}.
@@ -41,7 +42,7 @@ import org.springframework.web.service.invoker.HttpServiceProxyFactory;
  * @author Rossen Stoyanchev
  * @since 6.0
  */
-public final class WebClientAdapter implements HttpClientAdapter {
+public final class WebClientAdapter extends AbstractReactorHttpExchangeAdapter {
 
 	private final WebClient webClient;
 
@@ -55,37 +56,42 @@ public final class WebClientAdapter implements HttpClientAdapter {
 
 
 	@Override
-	public Mono<Void> requestToVoid(HttpRequestValues requestValues) {
+	public boolean supportsRequestAttributes() {
+		return true;
+	}
+
+	@Override
+	public Mono<Void> exchangeForMono(HttpRequestValues requestValues) {
 		return newRequest(requestValues).retrieve().toBodilessEntity().then();
 	}
 
 	@Override
-	public Mono<HttpHeaders> requestToHeaders(HttpRequestValues requestValues) {
+	public Mono<HttpHeaders> exchangeForHeadersMono(HttpRequestValues requestValues) {
 		return newRequest(requestValues).retrieve().toBodilessEntity().map(ResponseEntity::getHeaders);
 	}
 
 	@Override
-	public <T> Mono<T> requestToBody(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
+	public <T> Mono<T> exchangeForBodyMono(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
 		return newRequest(requestValues).retrieve().bodyToMono(bodyType);
 	}
 
 	@Override
-	public <T> Flux<T> requestToBodyFlux(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
+	public <T> Flux<T> exchangeForBodyFlux(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
 		return newRequest(requestValues).retrieve().bodyToFlux(bodyType);
 	}
 
 	@Override
-	public Mono<ResponseEntity<Void>> requestToBodilessEntity(HttpRequestValues requestValues) {
+	public Mono<ResponseEntity<Void>> exchangeForBodilessEntityMono(HttpRequestValues requestValues) {
 		return newRequest(requestValues).retrieve().toBodilessEntity();
 	}
 
 	@Override
-	public <T> Mono<ResponseEntity<T>> requestToEntity(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
+	public <T> Mono<ResponseEntity<T>> exchangeForEntityMono(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
 		return newRequest(requestValues).retrieve().toEntity(bodyType);
 	}
 
 	@Override
-	public <T> Mono<ResponseEntity<Flux<T>>> requestToEntityFlux(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
+	public <T> Mono<ResponseEntity<Flux<T>>> exchangeForEntityFlux(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
 		return newRequest(requestValues).retrieve().toEntityFlux(bodyType);
 	}
 
@@ -115,9 +121,13 @@ public final class WebClientAdapter implements HttpClientAdapter {
 		if (requestValues.getBodyValue() != null) {
 			bodySpec.bodyValue(requestValues.getBodyValue());
 		}
-		else if (requestValues.getBody() != null) {
-			Assert.notNull(requestValues.getBodyElementType(), "Publisher body element type is required");
-			bodySpec.body(requestValues.getBody(), requestValues.getBodyElementType());
+		else if (requestValues instanceof ReactiveHttpRequestValues reactiveRequestValues) {
+			Publisher<?> body = reactiveRequestValues.getBodyPublisher();
+			if (body != null) {
+				ParameterizedTypeReference<?> elementType = reactiveRequestValues.getBodyPublisherElementType();
+				Assert.notNull(elementType, "Publisher body element type is required");
+				bodySpec.body(body, elementType);
+			}
 		}
 
 		return bodySpec;

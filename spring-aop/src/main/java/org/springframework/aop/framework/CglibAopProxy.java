@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,14 +26,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-import org.aopalliance.aop.Advice;
 import org.aopalliance.intercept.MethodInvocation;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import org.springframework.aop.Advisor;
 import org.springframework.aop.AopInvocationException;
-import org.springframework.aop.PointcutAdvisor;
 import org.springframework.aop.RawTargetAccess;
 import org.springframework.aop.TargetSource;
 import org.springframework.aop.support.AopUtils;
@@ -169,15 +166,12 @@ class CglibAopProxy implements AopProxy, Serializable {
 		}
 
 		try {
-			// 从advised中获取ioc容器中配置的target对象
 			Class<?> rootClass = this.advised.getTargetClass();
 			Assert.state(rootClass != null, "Target class must be available for creating a CGLIB proxy");
 
 			Class<?> proxySuperClass = rootClass;
-			// 如果目标对象已经是CGLIB生成的代理对象(类名字中有$$字符串), 那么就取目标对象的父类作为目标对象的类
 			if (rootClass.getName().contains(ClassUtils.CGLIB_CLASS_SEPARATOR)) {
 				proxySuperClass = rootClass.getSuperclass();
-				// 获取原始父类的接口
 				Class<?>[] additionalInterfaces = rootClass.getInterfaces();
 				for (Class<?> additionalInterface : additionalInterfaces) {
 					this.advised.addInterface(additionalInterface);
@@ -185,40 +179,44 @@ class CglibAopProxy implements AopProxy, Serializable {
 			}
 
 			// Validate the class, writing log messages as necessary.
-			// 打印出不能代理的方法名, CGLIB是使用继承实现的, 所以final, static方法不能被增强(见方法内注释)
 			validateClassIfNecessary(proxySuperClass, classLoader);
 
 			// Configure CGLIB Enhancer...
-			// 配置Enhancer, 下面代码就是CGLIB创建代理的过程
 			Enhancer enhancer = createEnhancer();
 			if (classLoader != null) {
 				enhancer.setClassLoader(classLoader);
-				if (classLoader instanceof SmartClassLoader &&
-						((SmartClassLoader) classLoader).isClassReloadable(proxySuperClass)) {
+				if (classLoader instanceof SmartClassLoader smartClassLoader &&
+						smartClassLoader.isClassReloadable(proxySuperClass)) {
 					enhancer.setUseCache(false);
 				}
 			}
-			// 配置超类, 代理类实现的接口, 回调方法等
 			enhancer.setSuperclass(proxySuperClass);
 			enhancer.setInterfaces(AopProxyUtils.completeProxiedInterfaces(this.advised));
 			enhancer.setNamingPolicy(SpringNamingPolicy.INSTANCE);
 			enhancer.setAttemptLoad(true);
 			enhancer.setStrategy(new ClassLoaderAwareGeneratorStrategy(classLoader));
 
-			// 获取callbacks
 			Callback[] callbacks = getCallbacks(rootClass);
 			Class<?>[] types = new Class<?>[callbacks.length];
 			for (int x = 0; x < types.length; x++) {
 				types[x] = callbacks[x].getClass();
 			}
 			// fixedInterceptorMap only populated at this point, after getCallbacks call above
-			enhancer.setCallbackFilter(new ProxyCallbackFilter(
-					this.advised.getConfigurationOnlyCopy(), this.fixedInterceptorMap, this.fixedInterceptorOffset));
+			ProxyCallbackFilter filter = new ProxyCallbackFilter(
+					this.advised.getConfigurationOnlyCopy(), this.fixedInterceptorMap, this.fixedInterceptorOffset);
+			enhancer.setCallbackFilter(filter);
 			enhancer.setCallbackTypes(types);
 
 			// Generate the proxy class and create a proxy instance.
-			// 生成代理对象并设置回调
-			return (classOnly ? createProxyClass(enhancer) : createProxyClassAndInstance(enhancer, callbacks));
+			// ProxyCallbackFilter has method introspection capability with Advisor access.
+			try {
+				return (classOnly ? createProxyClass(enhancer) : createProxyClassAndInstance(enhancer, callbacks));
+			}
+			finally {
+				// Reduce ProxyCallbackFilter to key-only state for its class cache role
+				// in the CGLIB$CALLBACK_FILTER field, not leaking any Advisor state...
+				filter.advised.reduceToAdvisorKey();
+			}
 		}
 		catch (CodeGenerationException | IllegalArgumentException ex) {
 			throw new AopConfigException("Could not generate CGLIB subclass of " + this.advised.getTargetClass() +
@@ -259,11 +257,10 @@ class CglibAopProxy implements AopProxy, Serializable {
 	private void validateClassIfNecessary(Class<?> proxySuperClass, @Nullable ClassLoader proxyClassLoader) {
 		if (!this.advised.isOptimize() && logger.isInfoEnabled()) {
 			synchronized (validatedClasses) {
-				if (!validatedClasses.containsKey(proxySuperClass)) {
-					doValidateClass(proxySuperClass, proxyClassLoader,
-							ClassUtils.getAllInterfacesForClassAsSet(proxySuperClass));
-					validatedClasses.put(proxySuperClass, Boolean.TRUE);
-				}
+				validatedClasses.computeIfAbsent(proxySuperClass, clazz -> {
+					doValidateClass(clazz, proxyClassLoader, ClassUtils.getAllInterfacesForClassAsSet(clazz));
+					return Boolean.TRUE;
+				});
 			}
 		}
 	}
@@ -303,9 +300,9 @@ class CglibAopProxy implements AopProxy, Serializable {
 
 	private Callback[] getCallbacks(Class<?> rootClass) throws Exception {
 		// Parameters used for optimization choices...
-		boolean exposeProxy = this.advised.isExposeProxy();
-		boolean isFrozen = this.advised.isFrozen();
 		boolean isStatic = this.advised.getTargetSource().isStatic();
+		boolean isFrozen = this.advised.isFrozen();
+		boolean exposeProxy = this.advised.isExposeProxy();
 
 		// Choose an "aop" interceptor (used for AOP calls).
 		Callback aopInterceptor = new DynamicAdvisedInterceptor(this.advised);
@@ -373,8 +370,8 @@ class CglibAopProxy implements AopProxy, Serializable {
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		return (this == other || (other instanceof CglibAopProxy &&
-				AopProxyUtils.equalsInProxy(this.advised, ((CglibAopProxy) other).advised)));
+		return (this == other || (other instanceof CglibAopProxy that &&
+				AopProxyUtils.equalsInProxy(this.advised, that.advised)));
 	}
 
 	@Override
@@ -598,17 +595,12 @@ class CglibAopProxy implements AopProxy, Serializable {
 			if (proxy == other) {
 				return true;
 			}
-			if (other instanceof Factory) {
-				Callback callback = ((Factory) other).getCallback(INVOKE_EQUALS);
-				if (!(callback instanceof EqualsInterceptor)) {
-					return false;
-				}
-				AdvisedSupport otherAdvised = ((EqualsInterceptor) callback).advised;
-				return AopProxyUtils.equalsInProxy(this.advised, otherAdvised);
+			if (other instanceof Factory factory) {
+				Callback callback = factory.getCallback(INVOKE_EQUALS);
+				return (callback instanceof EqualsInterceptor that &&
+						AopProxyUtils.equalsInProxy(this.advised, that.advised));
 			}
-			else {
-				return false;
-			}
+			return false;
 		}
 	}
 
@@ -684,7 +676,6 @@ class CglibAopProxy implements AopProxy, Serializable {
 			Object oldProxy = null;
 			boolean setProxyContext = false;
 			Object target = null;
-			// 存放的是要代理的对象(例如: MathCalculator)
 			TargetSource targetSource = this.advised.getTargetSource();
 			try {
 				if (this.advised.exposeProxy) {
@@ -693,31 +684,25 @@ class CglibAopProxy implements AopProxy, Serializable {
 					setProxyContext = true;
 				}
 				// Get as late as possible to minimize the time we "own" the target, in case it comes from a pool...
-				// 获取应用的class类
 				target = targetSource.getTarget();
 				Class<?> targetClass = (target != null ? target.getClass() : null);
-				// 从advised中获取配置好的AOP拦截器链
 				List<Object> chain = this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);
 				Object retVal;
 				// Check whether we only have one InvokerInterceptor: that is,
 				// no real advice, but just reflective invocation of the target.
-				// 如果拦截器链为空
 				if (chain.isEmpty()) {
 					// We can skip creating a MethodInvocation: just invoke the target directly.
 					// Note that the final invoker must be an InvokerInterceptor, so we know
 					// it does nothing but a reflective operation on the target, and no hot
 					// swapping or fancy proxying.
 					Object[] argsToUse = AopProxyUtils.adaptArgumentsIfNecessary(method, args);
-					// 直接激活原方法
 					retVal = AopUtils.invokeJoinpointUsingReflection(target, method, argsToUse);
 				}
 				else {
 					// We need to create a method invocation...
-					// 通过CglibMethodInvocation来启动advice通知, 相当于一个纽带
 					retVal = new CglibMethodInvocation(proxy, target, method, args, targetClass, chain, methodProxy).proceed();
 				}
-				retVal = processReturnType(proxy, target, method, retVal);
-				return retVal;
+				return processReturnType(proxy, target, method, retVal);
 			}
 			finally {
 				if (target != null && !targetSource.isStatic()) {
@@ -733,8 +718,8 @@ class CglibAopProxy implements AopProxy, Serializable {
 		@Override
 		public boolean equals(@Nullable Object other) {
 			return (this == other ||
-					(other instanceof DynamicAdvisedInterceptor &&
-							this.advised.equals(((DynamicAdvisedInterceptor) other).advised)));
+					(other instanceof DynamicAdvisedInterceptor dynamicAdvisedInterceptor &&
+							this.advised.equals(dynamicAdvisedInterceptor.advised)));
 		}
 
 		/**
@@ -792,7 +777,7 @@ class CglibAopProxy implements AopProxy, Serializable {
 	 */
 	private static class ProxyCallbackFilter implements CallbackFilter {
 
-		private final AdvisedSupport advised;
+		final AdvisedSupport advised;
 
 		private final Map<Method, Integer> fixedInterceptorMap;
 
@@ -873,9 +858,9 @@ class CglibAopProxy implements AopProxy, Serializable {
 			// Proxy is not yet available, but that shouldn't matter.
 			List<?> chain = this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);
 			boolean haveAdvice = !chain.isEmpty();
-			boolean exposeProxy = this.advised.isExposeProxy();
 			boolean isStatic = this.advised.getTargetSource().isStatic();
 			boolean isFrozen = this.advised.isFrozen();
+			boolean exposeProxy = this.advised.isExposeProxy();
 			if (haveAdvice || !isFrozen) {
 				// If exposing the proxy, then AOP_PROXY must be used.
 				if (exposeProxy) {
@@ -930,70 +915,19 @@ class CglibAopProxy implements AopProxy, Serializable {
 
 		@Override
 		public boolean equals(@Nullable Object other) {
-			if (this == other) {
-				return true;
-			}
-			if (!(other instanceof ProxyCallbackFilter otherCallbackFilter)) {
-				return false;
-			}
-			AdvisedSupport otherAdvised = otherCallbackFilter.advised;
-			if (this.advised.isFrozen() != otherAdvised.isFrozen()) {
-				return false;
-			}
-			if (this.advised.isExposeProxy() != otherAdvised.isExposeProxy()) {
-				return false;
-			}
-			if (this.advised.getTargetSource().isStatic() != otherAdvised.getTargetSource().isStatic()) {
-				return false;
-			}
-			if (!AopProxyUtils.equalsProxiedInterfaces(this.advised, otherAdvised)) {
-				return false;
-			}
-			// Advice instance identity is unimportant to the proxy class:
-			// All that matters is type and ordering.
-			if (this.advised.getAdvisorCount() != otherAdvised.getAdvisorCount()) {
-				return false;
-			}
-			Advisor[] thisAdvisors = this.advised.getAdvisors();
-			Advisor[] thatAdvisors = otherAdvised.getAdvisors();
-			for (int i = 0; i < thisAdvisors.length; i++) {
-				Advisor thisAdvisor = thisAdvisors[i];
-				Advisor thatAdvisor = thatAdvisors[i];
-				if (!equalsAdviceClasses(thisAdvisor, thatAdvisor)) {
-					return false;
-				}
-				if (!equalsPointcuts(thisAdvisor, thatAdvisor)) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		private static boolean equalsAdviceClasses(Advisor a, Advisor b) {
-			return (a.getAdvice().getClass() == b.getAdvice().getClass());
-		}
-
-		private static boolean equalsPointcuts(Advisor a, Advisor b) {
-			// If only one of the advisor (but not both) is PointcutAdvisor, then it is a mismatch.
-			// Takes care of the situations where an IntroductionAdvisor is used (see SPR-3959).
-			return (!(a instanceof PointcutAdvisor) ||
-					(b instanceof PointcutAdvisor &&
-							ObjectUtils.nullSafeEquals(((PointcutAdvisor) a).getPointcut(), ((PointcutAdvisor) b).getPointcut())));
+			return (this == other || (other instanceof ProxyCallbackFilter that &&
+					this.advised.getAdvisorKey().equals(that.advised.getAdvisorKey()) &&
+					AopProxyUtils.equalsProxiedInterfaces(this.advised, that.advised) &&
+					ObjectUtils.nullSafeEquals(this.advised.getTargetClass(), that.advised.getTargetClass()) &&
+					this.advised.getTargetSource().isStatic() == that.advised.getTargetSource().isStatic() &&
+					this.advised.isFrozen() == that.advised.isFrozen() &&
+					this.advised.isExposeProxy() == that.advised.isExposeProxy() &&
+					this.advised.isOpaque() == that.advised.isOpaque()));
 		}
 
 		@Override
 		public int hashCode() {
-			int hashCode = 0;
-			Advisor[] advisors = this.advised.getAdvisors();
-			for (Advisor advisor : advisors) {
-				Advice advice = advisor.getAdvice();
-				hashCode = 13 * hashCode + advice.getClass().hashCode();
-			}
-			hashCode = 13 * hashCode + (this.advised.isFrozen() ? 1 : 0);
-			hashCode = 13 * hashCode + (this.advised.isExposeProxy() ? 1 : 0);
-			hashCode = 13 * hashCode + (this.advised.isOptimize() ? 1 : 0);
-			hashCode = 13 * hashCode + (this.advised.isOpaque() ? 1 : 0);
-			return hashCode;
+			return this.advised.getAdvisorKey().hashCode();
 		}
 	}
 

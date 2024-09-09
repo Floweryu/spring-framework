@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ public class CronTrigger implements Trigger {
 	/**
 	 * Determine the next execution time according to the given trigger context.
 	 * <p>Next execution times are calculated based on the
-	 * {@linkplain TriggerContext#lastCompletionTime completion time} of the
+	 * {@linkplain TriggerContext#lastCompletion completion time} of the
 	 * previous execution; therefore, overlapping executions won't occur.
 	 */
 	@Override
@@ -115,8 +115,8 @@ public class CronTrigger implements Trigger {
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		return (this == other || (other instanceof CronTrigger &&
-				this.expression.equals(((CronTrigger) other).expression)));
+		return (this == other || (other instanceof CronTrigger that &&
+				this.expression.equals(that.expression)));
 	}
 
 	@Override

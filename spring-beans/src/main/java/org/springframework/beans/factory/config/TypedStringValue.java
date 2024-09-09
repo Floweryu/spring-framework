@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ public class TypedStringValue implements BeanMetadataElement {
 	}
 
 	/**
-	 * Return whether this typed String value carries a target type .
+	 * Return whether this typed String value carries a target type.
 	 */
 	public boolean hasTargetType() {
 		return (this.targetType instanceof Class);
@@ -216,14 +216,9 @@ public class TypedStringValue implements BeanMetadataElement {
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof TypedStringValue otherValue)) {
-			return false;
-		}
-		return (ObjectUtils.nullSafeEquals(this.value, otherValue.value) &&
-				ObjectUtils.nullSafeEquals(this.targetType, otherValue.targetType));
+		return (this == other || (other instanceof TypedStringValue that &&
+				ObjectUtils.nullSafeEquals(this.value, that.value) &&
+				ObjectUtils.nullSafeEquals(this.targetType, that.targetType)));
 	}
 
 	@Override

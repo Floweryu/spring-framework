@@ -16,16 +16,16 @@
 package org.springframework.cglib.transform.impl;
 
 import org.springframework.cglib.core.ClassGenerator;
+import org.springframework.cglib.core.ClassTransformer;
 import org.springframework.cglib.core.DefaultGeneratorStrategy;
 import org.springframework.cglib.core.GeneratorStrategy;
 import org.springframework.cglib.core.TypeUtils;
-import org.springframework.cglib.core.ClassTransformer;
 import org.springframework.cglib.transform.MethodFilter;
 import org.springframework.cglib.transform.MethodFilterTransformer;
 import org.springframework.cglib.transform.TransformingClassGenerator;
 
 /**
- * A {@link GeneratorStrategy} suitable for use with {@link org.springframework.cglib.Enhancer} which
+ * A {@link GeneratorStrategy} suitable for use with {@link org.springframework.cglib.proxy.Enhancer} which
  * causes all undeclared exceptions thrown from within a proxied method to be wrapped
  * in an alternative exception of your choice.
  */
@@ -45,14 +45,11 @@ public class UndeclaredThrowableStrategy extends DefaultGeneratorStrategy {
     public UndeclaredThrowableStrategy(Class wrapper) {
        this.wrapper = wrapper;
     }
-    
-    private static final MethodFilter TRANSFORM_FILTER = new MethodFilter() {
-        public boolean accept(int access, String name, String desc, String signature, String[] exceptions) {
-            return !TypeUtils.isPrivate(access) && name.indexOf('$') < 0;
-        }
-    };
 
-    protected ClassGenerator transform(ClassGenerator cg) throws Exception {
+    private static final MethodFilter TRANSFORM_FILTER = (access, name, desc, signature, exceptions) -> !TypeUtils.isPrivate(access) && name.indexOf('$') < 0;
+
+    @Override
+	protected ClassGenerator transform(ClassGenerator cg) throws Exception {
     	 ClassTransformer   tr = new UndeclaredThrowableTransformer(wrapper);
          tr = new MethodFilterTransformer(TRANSFORM_FILTER, tr);
         return new TransformingClassGenerator(cg, tr);

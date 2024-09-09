@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.http.converter;
 
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLDecoder;
@@ -176,6 +177,7 @@ public class FormHttpMessageConverter implements HttpMessageConverter<MultiValue
 		this.supportedMediaTypes.add(MediaType.APPLICATION_FORM_URLENCODED);
 		this.supportedMediaTypes.add(MediaType.MULTIPART_FORM_DATA);
 		this.supportedMediaTypes.add(MediaType.MULTIPART_MIXED);
+		this.supportedMediaTypes.add(MediaType.MULTIPART_RELATED);
 
 		this.partConverters.add(new ByteArrayHttpMessageConverter());
 		this.partConverters.add(new StringHttpMessageConverter());
@@ -617,7 +619,7 @@ public class FormHttpMessageConverter implements HttpMessageConverter<MultiValue
 		private boolean headersWritten = false;
 
 		public MultipartHttpOutputMessage(OutputStream outputStream, Charset charset) {
-			this.outputStream = outputStream;
+			this.outputStream = new MultipartOutputStream(outputStream);
 			this.charset = charset;
 		}
 
@@ -653,6 +655,32 @@ public class FormHttpMessageConverter implements HttpMessageConverter<MultiValue
 		private byte[] getBytes(String name) {
 			return name.getBytes(this.charset);
 		}
+
 	}
+
+
+	/**
+	 * OutputStream that neither flushes nor closes.
+	 */
+	private static class MultipartOutputStream extends FilterOutputStream {
+
+		public MultipartOutputStream(OutputStream out) {
+			super(out);
+		}
+
+		@Override
+		public void write(byte[] b, int off, int let) throws IOException {
+			this.out.write(b, off, let);
+		}
+
+		@Override
+		public void flush() {
+		}
+
+		@Override
+		public void close() {
+		}
+	}
+
 
 }

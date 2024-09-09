@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.handler.AbstractHandlerMethodExceptionResolver;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 import org.springframework.web.servlet.support.RequestContextUtils;
 
 /**
@@ -372,6 +373,12 @@ public class ExceptionHandlerExceptionResolver extends AbstractHandlerMethodExce
 		return !this.exceptionHandlerAdviceCache.isEmpty();
 	}
 
+	@Override
+	protected boolean shouldApplyTo(HttpServletRequest request, @Nullable Object handler) {
+		return (handler instanceof ResourceHttpRequestHandler ?
+				hasGlobalExceptionHandlers() : super.shouldApplyTo(request, handler));
+	}
+
 	/**
 	 * Find an {@code @ExceptionHandler} method and invoke it to handle the raised exception.
 	 */
@@ -433,8 +440,8 @@ public class ExceptionHandlerExceptionResolver extends AbstractHandlerMethodExce
 			if (!mavContainer.isViewReference()) {
 				mav.setView((View) mavContainer.getView());
 			}
-			if (model instanceof RedirectAttributes) {
-				Map<String, ?> flashAttributes = ((RedirectAttributes) model).getFlashAttributes();
+			if (model instanceof RedirectAttributes redirectAttributes) {
+				Map<String, ?> flashAttributes = redirectAttributes.getFlashAttributes();
 				RequestContextUtils.getOutputFlashMap(request).putAll(flashAttributes);
 			}
 			return mav;

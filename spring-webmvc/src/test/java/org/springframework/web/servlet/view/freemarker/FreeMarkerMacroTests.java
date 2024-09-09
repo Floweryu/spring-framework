@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledForJreRange;
+import org.junit.jupiter.api.condition.JRE;
 
 import org.springframework.beans.testfixture.beans.TestBean;
 import org.springframework.core.io.ClassPathResource;
@@ -48,7 +50,6 @@ import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
 import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
 import org.springframework.web.testfixture.servlet.MockServletContext;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -146,6 +147,7 @@ public class FreeMarkerMacroTests {
 	}
 
 	@Test
+	@DisabledForJreRange(min = JRE.JAVA_21)
 	public void testAge() throws Exception {
 		assertThat(getMacroOutput("AGE")).isEqualTo("99");
 	}
@@ -250,17 +252,19 @@ public class FreeMarkerMacroTests {
 	@Test
 	public void testForm15() throws Exception {
 		String output = getMacroOutput("FORM15");
-		assertThat(output.startsWith("<input type=\"hidden\" name=\"_name\" value=\"on\"/>")).as("Wrong output: " + output).isTrue();
-		assertThat(output.contains("<input type=\"checkbox\" id=\"name\" name=\"name\" />")).as("Wrong output: " + output).isTrue();
+		assertThat(output).as("Wrong output: " + output)
+				.startsWith("<input type=\"hidden\" name=\"_name\" value=\"on\"/>");
+		assertThat(output).as("Wrong output: " + output)
+				.contains("<input type=\"checkbox\" id=\"name\" name=\"name\" />");
 	}
 
 	@Test
 	public void testForm16() throws Exception {
 		String output = getMacroOutput("FORM16");
-		assertThat(output.startsWith(
-				"<input type=\"hidden\" name=\"_jedi\" value=\"on\"/>")).as("Wrong output: " + output).isTrue();
-		assertThat(output.contains(
-				"<input type=\"checkbox\" id=\"jedi\" name=\"jedi\" checked=\"checked\" />")).as("Wrong output: " + output).isTrue();
+		assertThat(output).as("Wrong output: " + output)
+				.startsWith("<input type=\"hidden\" name=\"_jedi\" value=\"on\"/>");
+		assertThat(output).as("Wrong output: " + output)
+				.contains("<input type=\"checkbox\" id=\"jedi\" name=\"jedi\" checked=\"checked\" />");
 	}
 
 	@Test
@@ -271,10 +275,10 @@ public class FreeMarkerMacroTests {
 	@Test
 	public void testForm18() throws Exception {
 		String output = getMacroOutput("FORM18");
-		assertThat(output.startsWith(
-				"<input type=\"hidden\" name=\"_spouses[0].jedi\" value=\"on\"/>")).as("Wrong output: " + output).isTrue();
-		assertThat(output.contains(
-				"<input type=\"checkbox\" id=\"spouses0.jedi\" name=\"spouses[0].jedi\" checked=\"checked\" />")).as("Wrong output: " + output).isTrue();
+		assertThat(output).as("Wrong output: " + output)
+				.startsWith("<input type=\"hidden\" name=\"_spouses[0].jedi\" value=\"on\"/>");
+		assertThat(output).as("Wrong output: " + output)
+				.contains("<input type=\"checkbox\" id=\"spouses0.jedi\" name=\"spouses[0].jedi\" checked=\"checked\" />");
 	}
 
 
@@ -346,8 +350,9 @@ public class FreeMarkerMacroTests {
 	}
 
 	private void storeTemplateInTempDir(String macro) throws IOException {
-		Files.write(this.templateLoaderPath.resolve("tmp.ftl"),
-				("<#import \"spring.ftl\" as spring />\n" + macro).getBytes(UTF_8));
+		Files.writeString(this.templateLoaderPath.resolve("tmp.ftl"),
+				"<#import \"spring.ftl\" as spring />\n" + macro
+		);
 	}
 
 	private String getOutput() throws IOException {

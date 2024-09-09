@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -299,8 +298,8 @@ abstract class NamedParameterUtils {
 			NamedParameters.NamedParameter marker = markerHolder.getOrCreate(paramName);
 			if (paramSource.hasValue(paramName)) {
 				Parameter parameter = paramSource.getValue(paramName);
-				if (parameter.getValue() instanceof Collection<?> c) {
-					Iterator<?> entryIter = c.iterator();
+				if (parameter.getValue() instanceof Collection<?> collection) {
+					Iterator<?> entryIter = collection.iterator();
 					int k = 0;
 					int counter = 0;
 					while (entryIter.hasNext()) {
@@ -380,6 +379,7 @@ abstract class NamedParameterUtils {
 		private final int endIndex;
 
 		ParameterHolder(String parameterName, int startIndex, int endIndex) {
+			Assert.notNull(parameterName, "Parameter name must not be null");
 			this.parameterName = parameterName;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
@@ -398,20 +398,15 @@ abstract class NamedParameterUtils {
 		}
 
 		@Override
-		public boolean equals(Object o) {
-			if (this == o) {
-				return true;
-			}
-			if (!(o instanceof ParameterHolder that)) {
-				return false;
-			}
-			return this.startIndex == that.startIndex && this.endIndex == that.endIndex
-					&& Objects.equals(this.parameterName, that.parameterName);
+		public boolean equals(@Nullable Object other) {
+			return (this == other || (other instanceof ParameterHolder that &&
+					this.startIndex == that.startIndex && this.endIndex == that.endIndex &&
+					this.parameterName.equals(that.parameterName)));
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(this.parameterName, this.startIndex, this.endIndex);
+			return this.parameterName.hashCode();
 		}
 	}
 
@@ -513,15 +508,14 @@ abstract class NamedParameterUtils {
 			this.parameterSource = parameterSource;
 		}
 
-		@SuppressWarnings("unchecked")
+		@SuppressWarnings({"rawtypes", "unchecked"})
 		public void bind(BindTarget target, String identifier, Parameter parameter) {
 			List<BindMarker> bindMarkers = getBindMarkers(identifier);
 			if (bindMarkers == null) {
 				target.bind(identifier, parameter);
 				return;
 			}
-			if (parameter.getValue() instanceof Collection) {
-				Collection<Object> collection = (Collection<Object>) parameter.getValue();
+			if (parameter.getValue() instanceof Collection collection) {
 				Iterator<Object> iterator = collection.iterator();
 				Iterator<BindMarker> markers = bindMarkers.iterator();
 				while (iterator.hasNext()) {

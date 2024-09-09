@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -181,7 +181,7 @@ public abstract class MimeTypeUtils {
 
 	static {
 		// Not using "parseMimeType" to avoid static init cost
-		ALL = new MimeType("*", "*");
+		ALL = new MimeType(MimeType.WILDCARD_TYPE, MimeType.WILDCARD_TYPE);
 		APPLICATION_GRAPHQL = new MimeType("application", "graphql+json");
 		APPLICATION_JSON = new MimeType("application", "json");
 		APPLICATION_OCTET_STREAM = new MimeType("application", "octet-stream");
@@ -314,18 +314,14 @@ public abstract class MimeTypeUtils {
 		int i = 0;
 		while (i < mimeTypes.length()) {
 			switch (mimeTypes.charAt(i)) {
-				case '"':
-					inQuotes = !inQuotes;
-					break;
-				case ',':
+				case '"' -> inQuotes = !inQuotes;
+				case ',' -> {
 					if (!inQuotes) {
 						tokens.add(mimeTypes.substring(startIndex, i));
 						startIndex = i + 1;
 					}
-					break;
-				case '\\':
-					i++;
-					break;
+				}
+				case '\\' -> i++;
 			}
 			i++;
 		}

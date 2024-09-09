@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,18 +40,19 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.MockHttpInputMessage;
-import org.springframework.http.MockHttpOutputMessage;
 import org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter;
 import org.springframework.http.converter.xml.SourceHttpMessageConverter;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.testfixture.http.MockHttpInputMessage;
+import org.springframework.web.testfixture.http.MockHttpOutputMessage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA;
 import static org.springframework.http.MediaType.MULTIPART_MIXED;
+import static org.springframework.http.MediaType.MULTIPART_RELATED;
 import static org.springframework.http.MediaType.TEXT_XML;
 
 /**
@@ -65,8 +65,6 @@ import static org.springframework.http.MediaType.TEXT_XML;
  * @author Sebastien Deleuze
  */
 public class FormHttpMessageConverterTests {
-
-	private static final MediaType MULTIPART_RELATED = new MediaType("multipart", "related");
 
 	private final FormHttpMessageConverter converter = new AllEncompassingFormHttpMessageConverter();
 
@@ -85,8 +83,6 @@ public class FormHttpMessageConverterTests {
 		// Without custom multipart types supported
 		asssertCannotReadMultipart();
 
-		this.converter.addSupportedMediaTypes(MULTIPART_RELATED);
-
 		// Should still be the case with custom multipart types supported
 		asssertCannotReadMultipart();
 	}
@@ -96,6 +92,7 @@ public class FormHttpMessageConverterTests {
 		assertCanWrite(APPLICATION_FORM_URLENCODED);
 		assertCanWrite(MULTIPART_FORM_DATA);
 		assertCanWrite(MULTIPART_MIXED);
+		assertCanWrite(MULTIPART_RELATED);
 		assertCanWrite(new MediaType("multipart", "form-data", StandardCharsets.UTF_8));
 		assertCanWrite(MediaType.ALL);
 		assertCanWrite(null);
@@ -103,21 +100,19 @@ public class FormHttpMessageConverterTests {
 
 	@Test
 	public void setSupportedMediaTypes() {
-		assertCannotWrite(MULTIPART_RELATED);
+		this.converter.setSupportedMediaTypes(List.of(MULTIPART_FORM_DATA));
+		assertCannotWrite(MULTIPART_MIXED);
 
-		List<MediaType> supportedMediaTypes = new ArrayList<>(this.converter.getSupportedMediaTypes());
-		supportedMediaTypes.add(MULTIPART_RELATED);
-		this.converter.setSupportedMediaTypes(supportedMediaTypes);
-
-		assertCanWrite(MULTIPART_RELATED);
+		this.converter.setSupportedMediaTypes(List.of(MULTIPART_MIXED));
+		assertCanWrite(MULTIPART_MIXED);
 	}
 
 	@Test
 	public void addSupportedMediaTypes() {
-		assertCannotWrite(MULTIPART_RELATED);
+		this.converter.setSupportedMediaTypes(List.of(MULTIPART_FORM_DATA));
+		assertCannotWrite(MULTIPART_MIXED);
 
 		this.converter.addSupportedMediaTypes(MULTIPART_RELATED);
-
 		assertCanWrite(MULTIPART_RELATED);
 	}
 
@@ -129,10 +124,10 @@ public class FormHttpMessageConverterTests {
 				new MediaType("application", "x-www-form-urlencoded", StandardCharsets.ISO_8859_1));
 		MultiValueMap<String, String> result = this.converter.read(null, inputMessage);
 
-		assertThat(result.size()).as("Invalid result").isEqualTo(3);
+		assertThat(result).as("Invalid result").hasSize(3);
 		assertThat(result.getFirst("name 1")).as("Invalid result").isEqualTo("value 1");
 		List<String> values = result.get("name 2");
-		assertThat(values.size()).as("Invalid result").isEqualTo(2);
+		assertThat(values).as("Invalid result").hasSize(2);
 		assertThat(values.get(0)).as("Invalid result").isEqualTo("value 2+1");
 		assertThat(values.get(1)).as("Invalid result").isEqualTo("value 2+2");
 		assertThat(result.getFirst("name 3")).as("Invalid result").isNull();
